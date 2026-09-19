@@ -1,0 +1,105 @@
+# =============================================================================
+# route_intent - Phan loai y dinh va trich thuc the
+# =============================================================================
+# Lan goi LLM DAU TIEN va la mot trong hai lan duy nhat tren duong gang.
+# Bo qua han neu Router khop duoc bang luat regex (app/agent/router.py) - khoang
+# 60% cau hoi thuong gap khop duoc, tiet kiem mot luot goi.
+# =============================================================================
+
+id: route_intent
+version: "1.0.0"
+description_vi: "Phân loại câu hỏi thành intent và trích entity"
+model_role: router
+engine: jinja2
+renders_few_shots: false
+
+params:
+  temperature: 0.0
+  max_tokens: 250
+  response_format: json
+
+system: |
+  Bạn phân loại câu hỏi của người dùng về dữ liệu marketing và cho vay tiêu dùng.
+  Bạn chỉ trả về JSON, không giải thích.
+
+instructions: |
+  Đọc CÂU HỎI và LỊCH SỬ, trả về DUY NHẤT một object JSON:
+
+  {"intent": "<một trong các giá trị dưới>",
+   "entities": {"campaign_id": [...], "segment": [...], "income_band": [...],
+                "date_from": "YYYY-MM-DD hoặc null", "date_to": "YYYY-MM-DD hoặc null"},
+   "confidence": <float 0..1>}
+
+  Các intent hợp lệ:
+  - campaign_overview   : hỏi tổng quan nhiều chiến dịch, hoặc yêu cầu tạo dashboard
+  - campaign_diagnosis  : hỏi sâu về MỘT chiến dịch cụ thể
+  - funnel_analysis     : hỏi về phễu, tỷ lệ chuyển đổi, nút thắt
+  - customer_persona    : hỏi về tập khách hàng, phân khúc, chân dung
+  - segment_deep_dive   : hỏi sâu về MỘT phân khúc cụ thể
+  - clv_actions         : hỏi nên làm gì, đề xuất hành động, tăng CLV
+  - risk_fraud          : hỏi về hồ sơ bị từ chối, rủi ro, gian lận
+  - data_question       : hỏi một con số cụ thể, đếm, tra cứu
+  - freeform            : liên quan dữ liệu nhưng không khớp intent nào ở trên
+  - out_of_scope        : không liên quan tới dữ liệu chiến dịch/khách hàng
+
+  Giá trị campaign_id hợp lệ (CHỈ dùng các mã này, không bịa):
+  {{ campaign_ids | join(', ') }}
+
+  Giá trị segment hợp lệ:
+  {{ segments | join(', ') }}
+
+  QUY TẮC:
+  - Chỉ trích entity khi câu hỏi nêu rõ. Không suy đoán.
+  - Tên chiến dịch viết thường hoặc viết tắt vẫn ánh xạ được: "broker" -> CMP-PTN-BRK01,
+    "tiktok" -> CMP-TT-001, "zalo" -> CMP-ZL-RL1, "momo" -> CMP-PTN-MOMO,
+    "facebook"/"fb" -> CMP-FB-001, "google" -> CMP-GG-001.
+  - Không rõ khoảng thời gian thì để null; hệ thống dùng mặc định.
+  - confidence < 0.6 thì hệ thống sẽ hỏi lại người dùng.
+  - Không xuất bất kỳ thứ gì ngoài JSON.
+
+few_shots:
+
+  - input: "Chiến dịch nào đang lỗ?"
+    output: '{"intent":"campaign_overview","entities":{},"confidence":0.95}'
+
+  - input: "Vì sao Broker Network lỗ?"
+    output: '{"intent":"campaign_diagnosis","entities":{"campaign_id":["CMP-PTN-BRK01"]},"confidence":0.97}'
+
+  - input: "Tạo dashboard cho tôi"
+    output: '{"intent":"campaign_overview","entities":{},"confidence":0.90}'
+
+  - input: "Tập khách nào tiềm năng nhất?"
+    output: '{"intent":"customer_persona","entities":{},"confidence":0.92}'
+
+  - input: "Kể về nhóm champion"
+    output: '{"intent":"segment_deep_dive","entities":{"segment":["champion"]},"confidence":0.93}'
+
+  - input: "Nên làm gì để tăng giá trị vòng đời khách hàng?"
+    output: '{"intent":"clv_actions","entities":{},"confidence":0.95}'
+
+  - input: "Có bao nhiêu hồ sơ bị từ chối vì nợ xấu CIC?"
+    output: '{"intent":"data_question","entities":{},"confidence":0.88}'
+
+  - input: "Phễu rơi ở đâu nhiều nhất?"
+    output: '{"intent":"funnel_analysis","entities":{},"confidence":0.94}'
+
+  - input: "Thời tiết Hà Nội hôm nay thế nào?"
+    output: '{"intent":"out_of_scope","entities":{},"confidence":0.99}'
+
+  - input: "So sánh doanh thu tháng 8 với tháng 7"
+    output: '{"intent":"campaign_overview","entities":{"date_from":"2026-07-01","date_to":"2026-08-31"},"confidence":0.85}'
+    note_vi: >
+      Van phan loai binh thuong. Viec tu choi vi ngoai khoang du lieu la nhiem vu
+      cua semantic layer (INSUFFICIENT_HISTORY), khong phai cua router.
+
+output_contract:
+  format: json
+  schema:
+    type: object
+    required: [intent, entities, confidence]
+    properties:
+      intent: {type: string, enum: [campaign_overview, campaign_diagnosis,
+               funnel_analysis, customer_persona, segment_deep_dive, clv_actions,
+               risk_fraud, data_question, freeform, out_of_scope]}
+      entities: {type: object}
+      confidence: {type: number, minimum: 0, maximum: 1}

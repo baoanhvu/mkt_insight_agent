@@ -1,0 +1,109 @@
+# =============================================================================
+# judge_grounding - LLM-as-a-judge cham muc bam bang chung  (lop L5)
+# =============================================================================
+# Cau truc theo dung khuyen nghi cua tai lieu AWS ve phat hien hallucination:
+#   system -> task -> dinh dang dau ra -> quy tac cham -> few-shot -> rang buoc
+# Chay o temperature = 0, max_tokens nho, chi phi CO DINH mot luot goi.
+#
+# DIEU CHINH so voi tai lieu goc: tra ve BA NHAN thay vi mot diem, vi ba nhan anh
+# xa sang ba hanh vi UX khac nhau con mot diem thi khong:
+#   CONTRADICTED    -> BLOCK
+#   NOT_ENOUGH_INFO -> HEDGE
+#   SUPPORTED       -> PASS
+#
+# CHAY BAT DONG BO. Khong duoc chan duong gang - tran MaaS chi 10 RPM.
+# =============================================================================
+
+id: judge_grounding
+version: "1.0.0"
+description_vi: "Chấm mức độ câu trả lời được bằng chứng chống đỡ"
+model_role: judge
+engine: jinja2
+renders_few_shots: false
+
+params:
+  temperature: 0.0
+  max_tokens: 400
+  response_format: json
+
+system: |
+  Bạn là chuyên gia kiểm tra xem các phát biểu có dựa trên bằng chứng hay không.
+
+instructions: |
+  Đọc EVIDENCE và STATEMENT. Với mỗi câu trong STATEMENT, xác định câu đó có được
+  EVIDENCE chống đỡ trực tiếp hay không.
+
+  Trả về DUY NHẤT một object JSON:
+
+  {"claims": [{"text": "<câu, tối đa 20 từ đầu>",
+               "label": "SUPPORTED" | "CONTRADICTED" | "NOT_ENOUGH_INFO",
+               "evidence_ref": "<fact_id hoặc null>"}],
+   "entailment_rate": <float 0..1>,
+   "neutral_rate": <float 0..1>,
+   "contradiction_rate": <float 0..1>,
+   "grounding_score": <float 0..1>}
+
+  QUY TẮC GÁN NHÃN:
+  - SUPPORTED: câu diễn đạt lại một giá trị hoặc một quan hệ CÓ TRONG EVIDENCE.
+    Diễn đạt lại nguyên văn con số trong EVIDENCE luôn là SUPPORTED.
+  - CONTRADICTED: câu nói ngược với EVIDENCE, hoặc nêu một con số khác với con số
+    tương ứng trong EVIDENCE.
+  - NOT_ENOUGH_INFO: câu nêu điều EVIDENCE không nói tới. Đặc biệt:
+    * suy luận NHÂN QUẢ trong khi EVIDENCE chỉ có tương quan → NOT_ENOUGH_INFO
+    * so sánh hơn kém trong khi EVIDENCE có significant = false → CONTRADICTED
+    * suy đoán về nguyên nhân bên ngoài dữ liệu → NOT_ENOUGH_INFO
+
+  QUY TẮC TÍNH ĐIỂM:
+  - entailment_rate    = số câu SUPPORTED / tổng số câu
+  - neutral_rate       = số câu NOT_ENOUGH_INFO / tổng số câu
+  - contradiction_rate = số câu CONTRADICTED / tổng số câu
+  - grounding_score    = 0.0 nếu contradiction_rate > 0, ngược lại = entailment_rate
+
+  Câu mô tả bối cảnh hoặc chú thích phương pháp (ví dụ "đây là tỷ lệ tổng hợp mức
+  chiến dịch") KHÔNG tính vào các tỷ lệ trên — bỏ qua chúng.
+
+  Không xuất bất kỳ thông tin nào khác ngoài JSON.
+
+few_shots:
+
+  - evidence: "F1.r1.romi = 6.20 ; F1.r2.romi = 1.60 ; F1.r1.campaign = Zalo ; F1.r2.campaign = Google"
+    statement: "Chiến dịch Zalo đạt ROMI 6,20, cao hơn Google ở mức 1,60."
+    output: |
+      {"claims":[{"text":"Chiến dịch Zalo đạt ROMI 6,20, cao hơn Google","label":"SUPPORTED","evidence_ref":"F1.r1.romi"}],
+       "entailment_rate":1.0,"neutral_rate":0.0,"contradiction_rate":0.0,"grounding_score":1.0}
+
+  - evidence: "F1.r1.romi = 6.20"
+    statement: "Zalo hiệu quả vì nhắm đúng khách hàng có nhu cầu thực."
+    output: |
+      {"claims":[{"text":"Zalo hiệu quả vì nhắm đúng khách hàng có nhu cầu thực","label":"NOT_ENOUGH_INFO","evidence_ref":null}],
+       "entailment_rate":0.0,"neutral_rate":1.0,"contradiction_rate":0.0,"grounding_score":0.0}
+
+  - evidence: "F1.r1.approval_rate = 0.488"
+    statement: "Tỷ lệ duyệt đạt 72%."
+    output: |
+      {"claims":[{"text":"Tỷ lệ duyệt đạt 72%","label":"CONTRADICTED","evidence_ref":"F1.r1.approval_rate"}],
+       "entailment_rate":0.0,"neutral_rate":0.0,"contradiction_rate":1.0,"grounding_score":0.0}
+
+  - evidence: |
+      F6.r1.occupation = Freelancer  F6.r1.avg_profit = 220200
+      comparisons: [{metric: avg_profit, significant: false, anova_p: 0.9718}]
+    statement: "Nhóm Freelancer sinh lời tốt nhất với 220.200 VND mỗi khách."
+    output: |
+      {"claims":[{"text":"Nhóm Freelancer sinh lời tốt nhất","label":"CONTRADICTED","evidence_ref":"comparisons"},
+                 {"text":"220.200 VND mỗi khách","label":"SUPPORTED","evidence_ref":"F6.r1.avg_profit"}],
+       "entailment_rate":0.5,"neutral_rate":0.0,"contradiction_rate":0.5,"grounding_score":0.0}
+
+  - evidence: |
+      F0.avg_profit = 199629  F0.median_profit = -86175  F0.negative_profit_share = 0.538
+    statement: "Lợi nhuận trung bình 199.629 VND, nhưng trung vị là -86.175 VND nên quá nửa khách đang lỗ. Đây là tỷ lệ tổng hợp mức chiến dịch."
+    output: |
+      {"claims":[{"text":"Lợi nhuận trung bình 199.629 VND","label":"SUPPORTED","evidence_ref":"F0.avg_profit"},
+                 {"text":"trung vị là -86.175 VND","label":"SUPPORTED","evidence_ref":"F0.median_profit"},
+                 {"text":"quá nửa khách đang lỗ","label":"SUPPORTED","evidence_ref":"F0.negative_profit_share"}],
+       "entailment_rate":1.0,"neutral_rate":0.0,"contradiction_rate":0.0,"grounding_score":1.0}
+
+output_contract:
+  format: json
+  schema:
+    type: object
+    required: [claims, entailment_rate, neutral_rate, contradiction_rate, grounding_score]

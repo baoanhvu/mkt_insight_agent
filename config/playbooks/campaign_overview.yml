@@ -1,0 +1,75 @@
+# =============================================================================
+# campaign_overview - Tong quan hieu qua tat ca chien dich  (D1)
+# =============================================================================
+# Trigger vi du: "chien dich nao hieu qua nhat", "tao dashboard", "tong quan thang 8"
+# Day cung la playbook chay cho tab Chien dich tren UI.
+# =============================================================================
+
+id: campaign_overview
+label_vi: "Tổng quan hiệu quả chiến dịch"
+intent: CAMPAIGN_OVERVIEW
+requires_entities: []
+prompt: narrate_campaign_overview
+comparison_policy: significance_required
+default_date_range: {from: "2026-08-01", to: "2026-08-31"}
+
+# Bieu do phat ra qua su kien SSE `chart` truoc khi LLM viet
+charts:
+  - {id: romi_bar,  fact: F1, type: bar_negative, x: campaign_name, y: romi,
+     title_vi: "ROMI theo chiến dịch"}
+  - {id: profit_bar, fact: F1, type: bar_negative, x: campaign_name, y: net_profit,
+     title_vi: "Lợi nhuận ròng theo chiến dịch"}
+  - {id: funnel, fact: F2, type: funnel,
+     steps: [leads, applications, disbursed_loans],
+     title_vi: "Phễu tổng: lead → hồ sơ → giải ngân"}
+
+sections:
+
+  - id: verdict
+    label_vi: "Kết luận"
+    fact_id: F1
+    metrics: [romi, net_profit, acquisition_spend, disbursed_loans]
+    group_by: [campaign_id, campaign_name]
+    order_by: romi
+    order_desc: true
+    max_words: 80
+
+  - id: funnel
+    label_vi: "Phễu chuyển đổi"
+    fact_id: F2
+    metrics: [leads, applications, disbursed_loans,
+              lead_to_application_rate, approval_rate]
+    group_by: [campaign_id, campaign_name]
+    order_by: lead_to_application_rate
+    order_desc: true
+
+  - id: unit_economics
+    label_vi: "Kinh tế đơn vị"
+    fact_id: F3
+    metrics: [cost_per_disbursed, profit_per_disbursed, avg_loan_amount, profit_margin]
+    group_by: [campaign_id, campaign_name]
+    order_by: profit_per_disbursed
+    order_desc: true
+
+  - id: losers
+    label_vi: "Chiến dịch đang lỗ"
+    fact_id: F4
+    metrics: [net_profit, romi, partner_fee, partner_fee_share, total_cost]
+    group_by: [campaign_id, campaign_name]
+    having: "net_profit < 0"
+    order_by: net_profit
+    order_desc: false
+    # Khong co chien dich nao lo -> bo qua section thay vi tra ve bang rong
+    skip_if_empty: true
+
+  - id: recommendations
+    label_vi: "Đề xuất"
+    source: actions                 # lay tu config/analytics.yaml, khong do LLM nghi ra
+    max_items: 3
+    min_priority: 1
+
+# Chu thich BAT BUOC xuat hien trong cau tra loi (lop L3 kiem tra)
+required_caveats:
+  - metric: lead_to_application_rate
+  - text_vi: >
+      Kỳ dữ liệu: 01/08/2026 – 31/08/2026 (31 ngày). Không so sánh được theo tháng.

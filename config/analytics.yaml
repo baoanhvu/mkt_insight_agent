@@ -1,0 +1,305 @@
+# =============================================================================
+# analytics.yaml - Tham so cho phan khuc, CLV va thu vien hanh dong
+# =============================================================================
+# File nay dieu khien PHAN TINH TOAN, khong dieu khien cach dien dat.
+# Sua o day lam DOI SO. Sua prompt chi lam doi CACH NOI.
+# Moi gia tri trong `validated` da duoc kiem chung tren du lieu that 2026-09-19.
+# =============================================================================
+
+version: "1.0.0"
+
+# -----------------------------------------------------------------------------
+# 1. PHAN KHUC KHACH HANG
+# -----------------------------------------------------------------------------
+# Luat chay THEO THU TU. Moi khach roi vao phan khuc DAU TIEN khop.
+# Bat bien: tong so khach trong moi phan khuc = 2901, khong co '_unclassified'.
+# Kiem tra: tests/test_segmentation.py::test_covers_all_customers
+#
+# LUU Y THIET KE: thu tu quan trong. `high_risk` dung dau vi rui ro ghi de moi
+# thuoc tinh khac - mot khach vay lai nhieu lan nhung no qua han 60 ngay khong
+# phai la `champion`.
+# -----------------------------------------------------------------------------
+segmentation:
+  profit_high_percentile: 0.75      # nguong cho champion; = 466 969 VND tren du lieu hien tai
+
+  rules:
+    - id: high_risk
+      label_vi: "Rủi ro cao"
+      condition: "worst_dayslate > 30 or n_rejected >= 2"
+      action_hint_vi: "Khong nham quang cao. Chuyen sang quy trinh thu hoi no."
+
+    - id: champion
+      label_vi: "Khách hàng trụ cột"
+      condition: "is_repeat_customer and profit_to_date >= profit_p75"
+      action_hint_vi: "Giu chan. Uu dai lai suat, han muc cao hon."
+
+    - id: repeat_standard
+      label_vi: "Khách vay lại thường"
+      condition: "is_repeat_customer"
+      action_hint_vi: "Nang gia tri tung khoan vay."
+
+    - id: high_potential
+      label_vi: "Tiềm năng cao"
+      condition: >
+        n_disbursed >= 1 and income_band in ('12-20M', '>=20M')
+        and has_app and worst_dayslate == 0
+      action_hint_vi: "Muc tieu chinh cua chien dich tai vay."
+
+    - id: app_gap
+      label_vi: "Chưa cài app"
+      condition: "n_disbursed >= 1 and not has_app and income_band in ('12-20M', '>=20M')"
+      action_hint_vi: "Day cai app - nhung phai A/B test truoc, xem muc 3."
+
+    - id: dormant
+      label_vi: "Đang ngủ đông"
+      condition: "n_disbursed >= 1"
+      action_hint_vi: "Chien dich tai vay qua Zalo ZNS."
+
+    - id: rejected_only
+      label_vi: "Chỉ bị từ chối"
+      condition: "n_applications >= 1"
+      action_hint_vi: >
+        Da nop ho so nhung chua bao gio duoc giai ngan. Phan tich ly do tu choi de
+        biet co the cuu duoc bao nhieu.
+
+    - id: never_activated
+      label_vi: "Chưa kích hoạt"
+      condition: "is_never_applied"
+      action_hint_vi: "Chua tung nop ho so. Can chien dich kich hoat rieng."
+
+  # Gia tri da kiem chung - tests/test_segmentation.py doi chieu voi bang nay
+  validated:
+    total_customers: 2901
+    unclassified: 0
+    by_segment:
+      rejected_only:   {n: 1023, pct: 0.353, avg_profit: -140451, median_profit: -140551, repeat_pct: 0.000}
+      dormant:         {n:  802, pct: 0.276, avg_profit:  305061, median_profit:  293219, repeat_pct: 0.000}
+      never_activated: {n:  347, pct: 0.120, avg_profit:       0, median_profit:       0, repeat_pct: 0.000}
+      champion:        {n:  282, pct: 0.097, avg_profit: 1423972, median_profit: 1276482, repeat_pct: 1.000}
+      app_gap:         {n:  159, pct: 0.055, avg_profit:  327085, median_profit:  330648, repeat_pct: 0.000}
+      high_potential:  {n:  145, pct: 0.050, avg_profit:  303559, median_profit:  271814, repeat_pct: 0.000}
+      high_risk:       {n:   97, pct: 0.033, avg_profit: -936131, median_profit: -382047, repeat_pct: 0.258}
+      repeat_standard: {n:   46, pct: 0.016, avg_profit:   45579, median_profit:  -90022, repeat_pct: 1.000}
+
+  # KHONG dung lam truc phan khuc. Chi dung de MO TA chan dung.
+  descriptive_only_dimensions:
+    - dimension: occupation
+      reason_vi: >
+        ANOVA 7 nhom nghe: F = 0,2163, p = 0,9718. Loi nhuan trung binh dao dong
+        180k-220k tren n khoang 360 moi nhom, trong khi do lech chuan ca the la
+        738k. Chenh lech nam tron trong nhieu.
+      evidence: {anova_f: 0.2163, anova_p: 0.9718,
+                 freelancer_vs_grab_p: 0.5246, cohens_d: 0.0480}
+    - dimension: device_price_segment
+      reason_vi: "Ty le tu choi 38,5-40,8% - chenh lech khong dang ke."
+
+# -----------------------------------------------------------------------------
+# 2. MO HINH CLV
+# -----------------------------------------------------------------------------
+# Cong thuc:
+#   clv_predicted = clv_to_date
+#                 + p_repeat(behaviour_profile) * avg_profit_per_repeat_loan * horizon_factor
+#
+# TAI SAO p_repeat KHONG lay tu phan khuc gia tri:
+#   Phan khuc `champion` duoc DINH NGHIA bang is_repeat_customer = true, nen
+#   p_repeat trong phan khuc do luon bang 1,0. Dung no lam xac suat tai vay TUONG LAI
+#   la vong lap logic: no do qua khu chu khong du bao tuong lai.
+#   Thay vao do, p_repeat lay tu BANG TRA THEO HO SO HANH VI (income_band x has_app),
+#   tinh tren khach DA GIAI NGAN it nhat mot khoan.
+# -----------------------------------------------------------------------------
+clv:
+  horizon_factor: 1.0
+  horizon_factor_note_vi: >
+    GIA DINH CAU HINH, khong suy ra tu du lieu. Nghia la "moi khach tai vay toi da
+    mot lan trong 12 thang toi". Du lieu giao dich chi co 31 ngay (DQ-03) nen khong
+    the uoc luong chu ky tai vay 12 thang. Gia tri nay BAT BUOC duoc in kem moi con
+    so CLV du bao.
+
+  avg_profit_per_repeat_loan: 807610     # VND, n = 486, da kiem chung
+  min_sample_size: 30
+  confidence_level: 0.95
+
+  # Bang tra p_repeat. Tinh tren khach co n_disbursed >= 1.
+  # Chuoi du phong khi o chi tiet co n < 30:
+  #   (income_band, has_app)  ->  income_band  ->  global
+  p_repeat_lookup:
+    by_income_and_app:
+      "12-20M|true":  {n: 284, x: 103, p: 0.363, ci95: [0.309, 0.420]}
+      "12-20M|false": {n: 221, x:  51, p: 0.231, ci95: [0.180, 0.291]}
+      "8-12M|true":   {n: 348, x:  68, p: 0.195, ci95: [0.157, 0.240]}
+      "8-12M|false":  {n: 256, x:  39, p: 0.152, ci95: [0.113, 0.201]}
+      "<8M|true":     {n: 216, x:  34, p: 0.157, ci95: [0.115, 0.212]}
+      "<8M|false":    {n: 158, x:  13, p: 0.082, ci95: [0.049, 0.136]}
+      ">=20M|true":   {n:  17, x:  16, p: 0.941, ci95: [0.730, 0.990], usable: false}
+      ">=20M|false":  {n:   7, x:   5, p: 0.714, ci95: [0.359, 0.918], usable: false}
+    by_income:
+      "12-20M": {n: 505, x: 154, p: 0.305, ci95: [0.266, 0.346]}
+      "8-12M":  {n: 604, x: 107, p: 0.177, ci95: [0.149, 0.210]}
+      "<8M":    {n: 374, x:  47, p: 0.126, ci95: [0.096, 0.163]}
+      ">=20M":  {n:  24, x:  21, p: 0.875, ci95: [0.690, 0.957], usable: false}
+    global: {n: 1507, x: 329, p: 0.218, ci95: [0.198, 0.240]}
+
+  # Phan khuc chua giai ngan khoan nao -> khong co co so du bao
+  not_applicable_segments: [rejected_only, never_activated]
+
+  # Gia tri da kiem chung
+  validated:
+    by_segment:
+      champion:        {point: 1716873, lower: 1673474, upper: 1763233, p_repeat_source: "12-20M|true"}
+      high_potential:  {point:  596459, lower:  553060, upper:  642819, p_repeat_source: "12-20M|true"}
+      app_gap:         {point:  513456, lower:  472540, upper:  561802, p_repeat_source: "12-20M|false"}
+      dormant:         {point:  462870, lower:  431988, upper:  499124, p_repeat_source: "8-12M|true"}
+      repeat_standard: {point:  338480, lower:  295081, upper:  384840, p_repeat_source: "12-20M|true"}
+      high_risk:       {point: -778322, lower: -809205, upper: -742069, p_repeat_source: "8-12M|true"}
+
+  # Duong cong giu chan - CHI de tham khao, KHONG dung de ngoai suy
+  retention_curve_observed:
+    note_vi: >
+      Bi kiem duyet (censored) nang vi du lieu chi co 31 ngay. Buoc nhay tu 16,0%
+      len 87,4% o rank 3 la dau hieu cua viec cat cut du lieu, khong phai hanh vi
+      khach hang. KHONG dung bang nay de ngoai suy 12 thang.
+    p_reach_rank_given_previous_disbursed:
+      2: {p: 0.160, n: 1178, ci95: [0.141, 0.182]}
+      3: {p: 0.874, n:  175, ci95: [0.817, 0.915]}
+      4: {p: 0.664, n:  137, ci95: [0.582, 0.738]}
+      5: {p: 0.506, n:   83, ci95: [0.401, 0.611]}
+      6: {p: 0.238, n:   42, ci95: [0.135, 0.385]}
+      7: {p: 0.111, n:    9, ci95: [0.020, 0.435]}
+
+# -----------------------------------------------------------------------------
+# 3. THU VIEN HANH DONG (D3)
+# -----------------------------------------------------------------------------
+# Khuyen nghi KHONG do LLM nghi ra. LLM chi CHON trong so hanh dong da du dieu kien
+# va viet loi giai thich. Moi hanh dong phai co du 5 thanh phan, thieu mot thi
+# khong duoc hien thi:
+#   target_segment - target_metric - impact_formula - impact_caveat_vi - effort
+# -----------------------------------------------------------------------------
+actions:
+
+  - id: reloan_campaign_dormant
+    label_vi: "Chiến dịch tái vay cho nhóm ngủ đông qua Zalo ZNS"
+    trigger: "segment_size('dormant') >= 100 and metric('romi', campaign='CMP-ZL-RL1') > 2.0"
+    target_segment: dormant
+    target_metric: net_profit
+    impact_formula: >
+      segment_size('dormant')
+      * metric('lead_to_application_rate', campaign='CMP-ZL-RL1')
+      * metric('approval_rate', campaign='CMP-ZL-RL1')
+      * metric('profit_per_disbursed', campaign='CMP-ZL-RL1')
+    impact_caveat_vi: >
+      Dung ty le chuyen doi quan sat duoc cua chinh chien dich CMP-ZL-RL1
+      (34,4% lead thanh ho so, duyet 92,0%) ap cho tap ngu dong. Gia dinh tap nay
+      phan ung tuong tu tap da duoc nham truoc do - can kiem chung bang mot dot thu
+      quy mo nho truoc khi mo rong.
+    validated: {n: 802, conversion: 0.316, profit_per_disbursed: 890430,
+                impact_vnd: 225752301}
+    effort: low
+    priority: 1
+
+  - id: cut_broker_budget
+    label_vi: "Cắt hoặc đàm phán lại phí kênh Broker Network"
+    trigger: "metric('romi', campaign=C) < 0 and metric('partner_fee_share', campaign=C) > 0.15"
+    target_metric: romi
+    impact_formula: "abs(metric('net_profit', campaign=C))"
+    impact_caveat_vi: >
+      La khoan lo tranh duoc neu dung han. CHUA tinh tac dong toi tong so lead va
+      chua tinh chi phi cham dut hop dong doi tac.
+    validated:
+      CMP-PTN-BRK01: {net_profit: -66794874, partner_fee: 92650696,
+                      partner_fee_share: 0.4416, impact_vnd: 66794874}
+      CMP-PTN-MOMO:  {net_profit: -17529775, partner_fee: 76323400,
+                      partner_fee_share: 0.3549, impact_vnd: 17529775}
+    effort: low
+    priority: 2
+
+  - id: tighten_tiktok_targeting
+    label_vi: "Siết targeting TikTok theo tiêu chí của nhóm được duyệt"
+    trigger: >
+      metric('lead_to_application_rate', campaign=C) < 0.15
+      and metric('approval_rate', campaign=C) < 0.50
+    target_metric: cost_per_disbursed
+    impact_formula: >
+      metric('acquisition_spend', campaign=C)
+      * (1 - metric('lead_to_application_rate', campaign=C) / median_lead_to_app_other)
+    impact_caveat_vi: >
+      Uoc luong tran tren. Gia dinh co the dat muc trung vi cua cac chien dich khac
+      ma khong mat lead chat luong - day la gia dinh manh, can thu nghiem.
+    validated: {leads: 4280, lead_to_app: 0.114, median_other: 0.209,
+                acquisition_spend: 53425055,
+                applications_if_median: 895, applications_now: 489}
+    effort: medium
+    priority: 3
+
+  - id: push_app_adoption
+    label_vi: "Đẩy cài app cho nhóm giá trị cao chưa có app"
+    trigger: "segment_size('app_gap') >= 100"
+    target_segment: app_gap
+    target_metric: repeat_customer_rate
+    impact_formula: >
+      segment_size('app_gap')
+      * (p_repeat_with_app - p_repeat_without_app)
+      * avg_profit_per_repeat_loan
+    impact_caveat_vi: >
+      UOC LUONG TRAN TREN, va la tran tren cua mot quan he TUONG QUAN.
+      Chenh lech ty le vay lai giua nhom co app (25,5%) va khong app (16,8%) CHUA
+      chung minh duoc nhan qua - rat co the khach tot thi moi cai app. BAT BUOC chay
+      A/B test truoc khi mo rong. Con so nay la co hoi de THU NGHIEM, khong phai
+      loi nhuan da cam ket.
+    validated: {n: 159, p_with_app: 0.255, p_without_app: 0.168, delta: 0.087,
+                impact_vnd: 11205959, impact_range: [3651701, 18531047]}
+    effort: medium
+    priority: 4
+    requires_experiment: true
+
+  - id: activate_never_applied
+    label_vi: "Chiến dịch kích hoạt nhóm chưa từng nộp hồ sơ"
+    trigger: "segment_size('never_activated') >= 100"
+    target_segment: never_activated
+    target_metric: applications
+    impact_formula: "segment_size('never_activated') * assumed_activation_rate * profit_per_disbursed_overall"
+    impact_caveat_vi: >
+      KHONG co du lieu quan sat ve ty le kich hoat cua tap nay - ho chua bao gio nop
+      ho so nen khong co ty le chuyen doi lich su. `assumed_activation_rate` la mot
+      GIA DINH THUAN TUY. Chi trinh bay nhu mot co hoi can do luong, khong duoc
+      trinh bay nhu mot uoc luong loi nhuan.
+    validated: {n: 347, avg_income: 13337851, app_adoption: 0.726}
+    assumed_activation_rate: 0.05
+    effort: medium
+    priority: 5
+    requires_experiment: true
+
+  - id: reduce_cic_rejections
+    label_vi: "Lọc trước hồ sơ có nguy cơ nợ xấu CIC"
+    trigger: "metric('rejected_loans', reason_level_1='No xau CIC') >= 200"
+    target_metric: cost_per_disbursed
+    impact_formula: >
+      metric('rejected_loans', reason_level_1='No xau CIC')
+      * metric('cost_per_application')
+    impact_caveat_vi: >
+      Loc truoc chi tiet kiem duoc chi phi xu ly, KHONG tao ra doanh thu moi.
+      Va neu loc qua chat se mat ca ho so tot - can do false positive rate.
+    validated: {n_cic_rejects: 364, share_of_rejects: 0.343}
+    effort: high
+    priority: 6
+
+# -----------------------------------------------------------------------------
+# 4. THAM SO THONG KE
+# -----------------------------------------------------------------------------
+stats:
+  alpha: 0.05
+  min_effect_size: 0.2          # Cohen's d
+  min_sample_size: 30
+  bootstrap_iterations: 2000
+  bootstrap_seed: 42            # CO DINH: cung cau hoi phai cho cung p-value
+  confidence_level: 0.95
+  proportion_ci_method: wilson  # KHONG dung Wald: sai nang khi n nho hoac p gan 0/1
+
+  # Phan bo lech phai -> bat buoc bao cao trung vi kem trung binh
+  skew_guard:
+    enabled: true
+    applies_to_metrics: [avg_profit_per_customer, clv_to_date, clv_predicted]
+    rule_vi: >
+      Khi |mean - median| / |mean| > 0,3 HOAC ty le gia tri am > 30%, bat buoc bao cao
+      kem median va negative_profit_share.
+    validated_overall: {mean: 199629, median: -86175, negative_share: 0.538,
+                        top_decile_profit_share: 0.819}

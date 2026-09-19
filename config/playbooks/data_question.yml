@@ -1,0 +1,50 @@
+# =============================================================================
+# data_question - Cau hoi dem/tra cuu don gian
+# =============================================================================
+# Trigger vi du: "co bao nhieu khach hang", "tong doanh thu thang 8 la bao nhieu"
+#
+# Playbook nay co so muc it nhat va so token it nhat. Muc dich la tra loi nhanh
+# ma khong keo theo ca mot bao cao.
+# =============================================================================
+
+id: data_question
+label_vi: "Câu hỏi tra cứu"
+intent: DATA_QUESTION
+requires_entities: []
+prompt: narrate_campaign_overview     # dung lai, nhung gioi han max_words
+comparison_policy: significance_required
+max_words: 120
+
+# Planner chon chi so tu cau hoi thay vi lay danh sach co dinh.
+# Day la playbook DUY NHAT cho phep dieu do, va no bi gioi han chat.
+dynamic_metrics:
+  enabled: true
+  max_metrics: 4
+  max_dimensions: 2
+  allowed_datasets: [application, customer, segment, campaign_daily]
+
+sections:
+  - id: answer
+    label_vi: "Trả lời"
+    fact_id: F1
+    metrics_from_planner: true
+    group_by_from_planner: true
+    max_words: 100
+
+  - id: context
+    label_vi: "Bối cảnh"
+    fact_id: F2
+    # Luon kem tong the de con so don le co cho dua
+    metrics: [applications, disbursed_loans, customers]
+    group_by: []
+    skip_if_redundant: true
+    max_words: 40
+
+# Dem tren dataset customer mac dinh GOM ca 347 khach chua nop ho so.
+# Ghi chu nay ngan viec tra loi "2 901 khach hang" cho cau hoi that ra muon hoi
+# "bao nhieu khach da vay".
+required_caveats:
+  - text_vi: >
+      Số khách hàng mặc định tính trên toàn bộ 2 901 bản ghi, gồm cả 347 khách
+      chưa từng nộp hồ sơ. Nếu chỉ muốn khách đã nộp hồ sơ thì con số là 2 554.
+    applies_when: "dataset == 'customer' and no filter on is_never_applied"

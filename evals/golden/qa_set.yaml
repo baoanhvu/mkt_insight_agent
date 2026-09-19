@@ -1,0 +1,1110 @@
+# =============================================================================
+# qa_set.yaml - Golden set 100 ca
+# =============================================================================
+# Day la DINH NGHIA CUA "DUNG". Khong co file nay thi khong do duoc gi, va
+# khong hieu chinh duoc nguong chan.
+#
+# LUOC DO MOT CA
+#   id                     G001..G100
+#   question               cau hoi nguoi dung go
+#   category               aggregate|ranking|diagnosis|funnel|persona|clv|risk|
+#                          adversarial|unanswerable|ambiguous|empty_result|export
+#   difficulty             easy | medium | hard
+#   split                  dev | test
+#   expected_behavior      answer | clarify | refuse
+#   expected_intent        intent ma router phai tra ve
+#   gold_sql               truy van doi chung (tuy chon, de do execution accuracy)
+#   must_mention_numbers   so BAT BUOC xuat hien trong cau tra loi (dang hien thi vi-VN)
+#   must_mention_entities  ten BAT BUOC xuat hien
+#   must_mention_phrases   cum tu BAT BUOC xuat hien
+#   must_not_mention_*     bay: xuat hien la FAIL
+#   expected_stats_flag    ky vong ve ket qua kiem dinh
+#   notes                  vi sao ca nay ton tai
+#
+# THANH PHAN (xem docs/13-testing-eval.md muc 13.4)
+#   20 easy + 20 medium + 20 hard = 60 tra loi duoc
+#   12 adversarial | 12 unanswerable | 8 ambiguous | 5 empty_result | 3 export
+#
+# 32/100 ca thuoc nhom bay/khong tra loi duoc/mo ho. Ty le cao la CO CHU DICH:
+# do la nhung ca phan biet duoc agent tot voi agent kem. Ca de thi agent nao cung qua.
+#
+# MOI CON SO trong file nay da duoc kiem chung tren du lieu that ngay 2026-09-19.
+# =============================================================================
+
+version: "1.0.0"
+data_version: "full_schema_mock_v2.xlsx"
+validated_at: "2026-09-19"
+
+defaults:
+  date_from: "2026-08-01"
+  date_to: "2026-08-31"
+
+cases:
+
+# =============================================================================
+# NHOM A - TRA LOI DUOC, DE  (20 ca)  G001-G020
+# =============================================================================
+
+- id: G001
+  question: "Có bao nhiêu hồ sơ vay trong tháng 8?"
+  category: aggregate
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  gold_sql: "SELECT COUNT(*) FROM mart.mart_application"
+  must_mention_numbers: ["2.687"]
+
+- id: G002
+  question: "Bao nhiêu khoản đã được giải ngân?"
+  category: aggregate
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  gold_sql: "SELECT COUNT(*) FROM mart.mart_application WHERE is_disbursed"
+  must_mention_numbers: ["1.625"]
+
+- id: G003
+  question: "Bao nhiêu hồ sơ bị từ chối?"
+  category: aggregate
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["1.062"]
+
+- id: G004
+  question: "Tỷ lệ duyệt chung là bao nhiêu?"
+  category: aggregate
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["60,5"]
+
+- id: G005
+  question: "Có bao nhiêu lead trong tháng 8?"
+  category: aggregate
+  difficulty: easy
+  split: test
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["14.530"]
+
+- id: G006
+  question: "Tổng lợi nhuận ròng là bao nhiêu?"
+  category: aggregate
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["509.852.210"]
+
+- id: G007
+  question: "Tổng doanh thu tháng 8?"
+  category: aggregate
+  difficulty: easy
+  split: test
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["1.863.241.782"]
+
+- id: G008
+  question: "Có bao nhiêu khách hàng?"
+  category: aggregate
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["2.901"]
+  must_mention_phrases: ["347"]
+  notes: >
+    BAY NHE: dataset customer mac dinh gom ca 347 khach chua nop ho so.
+    Agent phai neu ca hai con so, hoac noi ro dang dem tap nao.
+
+- id: G009
+  question: "Có mấy chiến dịch đang chạy?"
+  category: aggregate
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["6"]
+
+- id: G010
+  question: "Chiến dịch nào có ROMI cao nhất?"
+  category: ranking
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_entities: ["Zalo"]
+  must_mention_numbers: ["6,20"]
+
+- id: G011
+  question: "Chiến dịch nào đang lỗ?"
+  category: ranking
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_entities: ["Broker", "Momo"]
+  must_mention_numbers: ["-66.794.874", "-17.529.775"]
+  must_not_mention_entities: []
+  notes: "Kiem tra doc dung dau am va khong goi nham chien dich co lai la lo."
+
+- id: G012
+  question: "Chiến dịch nào nhiều lead nhất?"
+  category: ranking
+  difficulty: easy
+  split: test
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_entities: ["TikTok"]
+  must_mention_numbers: ["4.280"]
+
+- id: G013
+  question: "Tỷ lệ khách vay lại là bao nhiêu?"
+  category: persona
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_numbers: ["13,8"]
+
+- id: G014
+  question: "Lý do từ chối phổ biến nhất là gì?"
+  category: risk
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: risk_fraud
+  must_mention_entities: ["No xau CIC"]
+  must_mention_numbers: ["364"]
+
+- id: G015
+  question: "Tỷ lệ duyệt của chiến dịch Zalo?"
+  category: aggregate
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["92,0"]
+
+- id: G016
+  question: "Khoản vay trung bình là bao nhiêu?"
+  category: aggregate
+  difficulty: easy
+  split: test
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_phrases: ["giải ngân"]
+  notes: >
+    Mau so CHI gom ho so da giai ngan vi loan_amount NULL o ho so bi tu choi.
+    Agent phai noi ro dieu do.
+
+- id: G017
+  question: "Bao nhiêu khách đã cài app?"
+  category: persona
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["1.442"]
+
+- id: G018
+  question: "Chi phí marketing của TikTok là bao nhiêu?"
+  category: aggregate
+  difficulty: easy
+  split: test
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["34.966.759"]
+
+- id: G019
+  question: "Có bao nhiêu hồ sơ có vị trí không khớp?"
+  category: risk
+  difficulty: easy
+  split: dev
+  expected_behavior: answer
+  expected_intent: risk_fraud
+  must_mention_numbers: ["180"]
+
+- id: G020
+  question: "ROMI tổng thể là bao nhiêu?"
+  category: aggregate
+  difficulty: easy
+  split: test
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_numbers: ["1,64"]
+
+# =============================================================================
+# NHOM B - TRA LOI DUOC, TRUNG BINH  (20 ca)  G021-G040
+# =============================================================================
+
+- id: G021
+  question: "So sánh ROMI của Facebook và Google"
+  category: ranking
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_numbers: ["1,31", "1,60"]
+  must_mention_entities: ["Facebook", "Google"]
+
+- id: G022
+  question: "Chi phí thu hút mỗi khoản giải ngân của từng chiến dịch?"
+  category: aggregate
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_numbers: ["141.590", "245.069"]
+
+- id: G023
+  question: "Phễu của chiến dịch TikTok trông thế nào?"
+  category: funnel
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["4.280", "489", "218", "11,4", "44,6"]
+  must_mention_phrases: ["tổng hợp"]
+  notes: "Bat buoc nhac caveat ve ty le tong hop muc chien dich."
+
+- id: G024
+  question: "Nhóm thu nhập nào có tỷ lệ vay lại cao nhất và đủ quy mô?"
+  category: persona
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_entities: ["12-20M"]
+  must_mention_numbers: ["20,7", "797"]
+  must_not_mention_phrases: ["nên dồn toàn bộ ngân sách"]
+  notes: >
+    Nhom >=20M co ty le cao hon (86,2%) nhung n=29 duoi nguong. Cau hoi co chu
+    "du quy mo" nen dap an dung la 12-20M.
+
+- id: G025
+  question: "Phân rã chi phí của Broker Network"
+  category: diagnosis
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["92.650.696", "44,2"]
+  must_mention_phrases: ["phí đối tác"]
+
+- id: G026
+  question: "Khách có app và không có app khác nhau thế nào?"
+  category: persona
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_numbers: ["16,6", "10,3"]
+  must_mention_phrases: ["tương quan"]
+  must_not_mention_phrases: ["làm tăng", "dẫn đến", "khiến"]
+  expected_stats_flag: {significant: true}
+  notes: "Chenh lech CO y nghia (p=4,43e-06) NHUNG la tuong quan, khong phai nhan qua."
+
+- id: G027
+  question: "Xu hướng lead theo ngày trong tháng 8"
+  category: aggregate
+  difficulty: medium
+  split: test
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_numbers: ["31"]
+
+- id: G028
+  question: "Chiến dịch nào có tỷ lệ lead thành hồ sơ tốt nhất trong nhóm khách mới?"
+  category: ranking
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_entities: ["Broker"]
+  must_mention_numbers: ["29,9"]
+  must_mention_phrases: ["lỗ"]
+  notes: >
+    BAY: Broker tot nhat o buoc dau nhung lo nang nhat. Agent phai neu ca hai,
+    khong duoc khen mot chieu.
+
+- id: G029
+  question: "Tỷ lệ từ chối theo hệ điều hành"
+  category: risk
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: risk_fraud
+  must_mention_numbers: ["49,2", "39,1", "38,9"]
+  must_mention_phrases: ["130"]
+  notes: "Windows n=130, tren nguong 30 nhung duoi 100 -> phai canh bao co mau."
+
+- id: G030
+  question: "Lợi nhuận trung bình mỗi khách hàng là bao nhiêu?"
+  category: persona
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["199.629", "-86.175"]
+  must_mention_phrases: ["trung vị"]
+  notes: >
+    BAY QUAN TRONG: trung binh duong nhung trung vi AM. Bao cao trung binh mot
+    minh la gay hieu nham. Bat buoc neu ca hai.
+
+- id: G031
+  question: "Có bao nhiêu khách chưa từng nộp hồ sơ?"
+  category: persona
+  difficulty: medium
+  split: test
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["347"]
+
+- id: G032
+  question: "Khoản vay lại có lớn hơn khoản vay đầu không?"
+  category: aggregate
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["54.678.040", "30.029.455"]
+
+- id: G033
+  question: "Tỷ lệ tổn thất tín dụng của chiến dịch Zalo"
+  category: risk
+  difficulty: medium
+  split: test
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["52.603.689"]
+
+- id: G034
+  question: "Nhóm tuổi nào vay lại nhiều nhất?"
+  category: persona
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_entities: ["46-55"]
+  must_mention_numbers: ["21,6", "513"]
+
+- id: G035
+  question: "Chiến dịch Momo lãi hay lỗ?"
+  category: diagnosis
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["-17.529.775", "-0,41"]
+  must_mention_phrases: ["lỗ"]
+
+- id: G036
+  question: "Hồ sơ có vị trí không khớp có tệ hơn không?"
+  category: risk
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: risk_fraud
+  must_mention_numbers: ["45,6", "39,1", "180"]
+  expected_stats_flag: {significant: true}
+
+- id: G037
+  question: "Doanh thu của Zalo đến từ đâu?"
+  category: diagnosis
+  difficulty: medium
+  split: test
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["474.633.859", "244.410.839"]
+
+- id: G038
+  question: "Tỷ lệ cài app trong nhóm khách đã vay"
+  category: persona
+  difficulty: medium
+  split: test
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["56,5"]
+
+- id: G039
+  question: "Chiến dịch nào có chi phí thu hút mỗi khoản giải ngân cao nhất?"
+  category: ranking
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_entities: ["TikTok"]
+  must_mention_numbers: ["245.069"]
+
+- id: G040
+  question: "Lý do từ chối chi tiết, chia hai cấp"
+  category: risk
+  difficulty: medium
+  split: test
+  expected_behavior: answer
+  expected_intent: risk_fraud
+  must_mention_numbers: ["193", "171", "156"]
+
+# =============================================================================
+# NHOM C - TRA LOI DUOC, KHO  (20 ca)  G041-G060
+# =============================================================================
+
+- id: G041
+  question: "Vì sao Broker Network lỗ?"
+  category: diagnosis
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["-66.794.874", "-1,85", "92.650.696", "44,2", "29,9", "48,8"]
+  must_mention_phrases: ["phí đối tác", "tổng hợp"]
+  notes: >
+    Ca kiem tra day du nhat cua playbook chan doan: phai neu ket luan, pheu,
+    phan ra chi phi, va nhac caveat.
+
+- id: G042
+  question: "Nên cắt ngân sách chiến dịch nào?"
+  category: clv
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: clv_actions
+  must_mention_entities: ["Broker"]
+  must_mention_numbers: ["66.794.874"]
+  must_mention_phrases: ["ước tính"]
+  must_not_mention_phrases: ["chắc chắn", "cam kết"]
+
+- id: G043
+  question: "Làm gì để tăng giá trị vòng đời khách hàng?"
+  category: clv
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: clv_actions
+  must_mention_numbers: ["802", "225.752.301"]
+  must_mention_phrases: ["ước tính", "thử"]
+  must_not_mention_phrases: ["email marketing", "KOL", "influencer"]
+  notes: "Chi duoc de xuat hanh dong co trong thu vien config/analytics.yaml."
+
+- id: G044
+  question: "Tập khách nào đáng theo đuổi nhất?"
+  category: persona
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_phrases: ["quy mô"]
+  must_not_mention_phrases: ["nghề nghiệp"]
+  notes: "Uu tien phai dua tren TICH cua quy mo va gia tri, khong chi gia tri."
+
+- id: G045
+  question: "Chân dung nhóm champion"
+  category: persona
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: segment_deep_dive
+  must_mention_numbers: ["282", "1.423.972", "1.276.482"]
+
+- id: G046
+  question: "CLV dự báo của từng phân khúc"
+  category: clv
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_numbers: ["1.716.873"]
+  must_mention_phrases: ["giả định", "horizon"]
+  notes: "Moi con so CLV du bao BAT BUOC kem gia dinh horizon_factor."
+
+- id: G047
+  question: "Phễu rơi ở đâu nhiều nhất?"
+  category: funnel
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: funnel_analysis
+  must_mention_entities: ["TikTok"]
+  must_mention_numbers: ["11,4", "44,6"]
+  must_mention_phrases: ["tổng hợp"]
+
+- id: G048
+  question: "Tại sao chiến dịch Zalo hiệu quả hơn hẳn các chiến dịch khác?"
+  category: diagnosis
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["6,20", "92,0", "54.678.040"]
+  must_mention_phrases: ["tái vay"]
+  must_not_mention_phrases: ["vì nhắm đúng", "do thông điệp"]
+  notes: >
+    Duoc phep giai thich bang KE TOAN (duyet cao hon, khoan lon hon) nhung KHONG
+    duoc suy dien ve ly do marketing khong co trong du lieu.
+
+- id: G049
+  question: "So sánh hiệu quả nhóm khách mới và khách cũ"
+  category: persona
+  difficulty: hard
+  split: test
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_numbers: ["1.111.894", "53.318"]
+
+- id: G050
+  question: "Chiến dịch nào nên tăng ngân sách?"
+  category: clv
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: clv_actions
+  must_mention_entities: ["Zalo"]
+  must_mention_phrases: ["ước tính"]
+
+- id: G051
+  question: "Phân tích nhóm app_gap"
+  category: persona
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: segment_deep_dive
+  must_mention_numbers: ["159"]
+  must_mention_phrases: ["tương quan"]
+
+- id: G052
+  question: "Nhóm nào đang làm giảm lợi nhuận chung?"
+  category: persona
+  difficulty: hard
+  split: test
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_entities: ["rejected_only"]
+  must_mention_numbers: ["1.023"]
+
+- id: G053
+  question: "Nếu cắt cả Broker và Momo thì lợi nhuận thay đổi thế nào?"
+  category: clv
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: clv_actions
+  must_mention_numbers: ["66.794.874", "17.529.775"]
+  must_mention_phrases: ["chưa tính"]
+  notes: "Phai neu caveat: chua tinh tac dong toi tong lead va chi phi cham dut hop dong."
+
+- id: G054
+  question: "Kênh nào mang về khách hàng chất lượng nhất?"
+  category: ranking
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_numbers: ["878.073"]
+  must_mention_phrases: ["tái vay"]
+  notes: >
+    Zalo dan dau nhung la chien dich TAI VAY, khong so sanh ngang duoc voi kenh
+    thu hut khach moi. Agent phai neu dieu do.
+
+- id: G055
+  question: "Tỷ lệ vay lại theo thu nhập, kèm khoảng tin cậy"
+  category: persona
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_numbers: ["20,7", "18,0", "23,7", "797"]
+  must_mention_phrases: ["khoảng tin cậy"]
+
+- id: G056
+  question: "Top 10% khách đóng góp bao nhiêu phần trăm lợi nhuận?"
+  category: persona
+  difficulty: hard
+  split: test
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["81,9"]
+
+- id: G057
+  question: "Bao nhiêu phần trăm khách đang lỗ?"
+  category: persona
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_numbers: ["53,8", "1.374"]
+
+- id: G058
+  question: "Phân tích đầy đủ chiến dịch Google Search"
+  category: diagnosis
+  difficulty: hard
+  split: test
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["1,60", "88.164.340", "59,0", "20,9"]
+
+- id: G059
+  question: "Hồ sơ bị từ chối tốn bao nhiêu tiền?"
+  category: diagnosis
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_phrases: ["từ chối", "chi phí"]
+  notes: >
+    Ho so bi tu choi van phat sinh lead_cost, marketing_cost, operation_cost va
+    loan_processing_cost nhung doanh thu = 0.
+
+- id: G060
+  question: "Xuất danh sách khách nhóm dormant kèm lý do chọn"
+  category: clv
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: clv_actions
+  must_mention_numbers: ["802"]
+
+# =============================================================================
+# NHOM D - BAY DOI KHANG  (12 ca)  G061-G072
+# Day la nhom PHAN BIET agent tot voi agent kem.
+# =============================================================================
+
+- id: G061
+  question: "Nhóm nghề nghiệp nào sinh lời nhất?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_phrases: ["sai số thống kê"]
+  must_not_mention_phrases: ["sinh lời nhất", "tốt nhất", "vượt trội", "dẫn đầu"]
+  expected_stats_flag: {significant: false, anova_p: 0.9718}
+  notes: >
+    BAY SO MOT. Chenh lech 180k-220k tren n khoang 360, do lech chuan ca the 738k.
+    ANOVA p = 0,9718. Mot LLM khong duoc rao se tuyen bo Freelancer sinh loi nhat.
+
+- id: G062
+  question: "Nhóm thu nhập trên 20 triệu có đáng đầu tư không?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_numbers: ["29"]
+  must_mention_phrases: ["mẫu"]
+  must_not_mention_phrases: ["nên dồn ngân sách", "chắc chắn", "rõ ràng nên"]
+  notes: "n=29 duoi nguong 30. CI Wilson [0,694; 0,945] - rong den muc vo dung."
+
+- id: G063
+  question: "Cài app có làm khách vay lại nhiều hơn không?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_phrases: ["tương quan"]
+  must_not_mention_phrases: ["làm tăng", "dẫn đến", "khiến", "nhờ đó", "giúp tăng"]
+  notes: "BAY NHAN QUA. Rat co the khach tot thi moi cai app."
+
+- id: G064
+  question: "Khách dùng iPhone có tốt hơn khách dùng Android không?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_phrases: ["sai số"]
+  must_not_mention_phrases: ["tốt hơn hẳn", "vượt trội"]
+  expected_stats_flag: {significant: false}
+  notes: "iOS 38,9% vs Android 39,1% tu choi - chenh lech khong dang ke."
+
+- id: G065
+  question: "Thiết bị cao cấp có báo hiệu khách chất lượng không?"
+  category: adversarial
+  difficulty: hard
+  split: test
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_not_mention_phrases: ["rõ ràng", "chắc chắn"]
+  expected_stats_flag: {significant: false}
+  notes: "High-end 38,5% vs Low-end 38,5% tu choi - hoan toan khong phan hoa."
+
+- id: G066
+  question: "Freelancer có rủi ro hơn nhân viên văn phòng không?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: risk_fraud
+  must_mention_phrases: ["sai số"]
+  must_not_mention_phrases: ["rủi ro hơn", "an toàn hơn"]
+  expected_stats_flag: {significant: false}
+
+- id: G067
+  question: "Lợi nhuận trung bình mỗi khách là 199.629 VND, vậy 1000 khách mới mang về gần 200 triệu đúng không?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_numbers: ["-86.175", "53,8"]
+  must_mention_phrases: ["trung vị"]
+  must_not_mention_phrases: ["đúng", "chính xác"]
+  notes: >
+    BAY NGOAI SUY TU TRUNG BINH. Trung vi am, 53,8% khach lo, top decile chiem
+    81,9% loi nhuan. Phep nhan tuyen tinh nay sai ve ban chat.
+
+- id: G068
+  question: "Tháng sau nên kỳ vọng bao nhiêu lead?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: refuse
+  expected_intent: campaign_overview
+  must_mention_phrases: ["31 ngày"]
+  must_not_mention_phrases: ["dự báo tháng sau là"]
+  notes: "Chi co 31 ngay du lieu - khong du de du bao mua vu hay xu huong."
+
+- id: G069
+  question: "Tỷ lệ vay lại của nhóm high_risk là 25,8%, vậy nhóm này cũng đáng theo đuổi?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: segment_deep_dive
+  must_mention_numbers: ["-936.131"]
+  must_not_mention_phrases: ["đáng theo đuổi", "nên nhắm"]
+  notes: "Ty le vay lai cao nhung loi nhuan trung binh AM -936.131 VND."
+
+- id: G070
+  question: "Chiến dịch Broker có tỷ lệ lead thành hồ sơ cao nhất, vậy đó là chiến dịch tốt nhất?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_diagnosis
+  must_mention_numbers: ["-1,85", "-66.794.874"]
+  must_not_mention_phrases: ["tốt nhất", "đúng vậy"]
+  notes: "BAY VANITY METRIC. Pheu dep o dau, lo nang nhat o cuoi."
+
+- id: G071
+  question: "Nên nhắm vào nhóm nghề nào để tăng lợi nhuận?"
+  category: adversarial
+  difficulty: hard
+  split: test
+  expected_behavior: answer
+  expected_intent: clv_actions
+  must_mention_phrases: ["thu nhập"]
+  must_not_mention_phrases: ["nhóm nghề", "Freelancer là"]
+  notes: "Phai chuyen huong sang chieu THUC SU phan hoa: thu nhap va has_app."
+
+- id: G072
+  question: "Khách 46-55 tuổi vay lại nhiều nhất, vậy nên chỉ nhắm vào nhóm này?"
+  category: adversarial
+  difficulty: hard
+  split: dev
+  expected_behavior: answer
+  expected_intent: customer_persona
+  must_mention_numbers: ["513", "21,6"]
+  must_not_mention_phrases: ["chỉ nên nhắm", "bỏ qua các nhóm khác"]
+  notes: "Nhom 36-45 co 772 khach - lon hon nhieu. Quy mo quan trong ngang gia tri."
+
+# =============================================================================
+# NHOM E - KHONG TRA LOI DUOC  (12 ca)  G073-G084
+# =============================================================================
+
+- id: G073
+  question: "So sánh doanh thu tháng 8 với tháng 7"
+  category: unanswerable
+  difficulty: medium
+  split: dev
+  expected_behavior: refuse
+  expected_intent: campaign_overview
+  must_mention_phrases: ["01/08/2026", "31/08/2026"]
+  must_not_mention_numbers: ["*"]
+  notes: "DQ-03: chi co 31 ngay du lieu giao dich."
+
+- id: G074
+  question: "Tăng trưởng doanh thu so với cùng kỳ năm ngoái?"
+  category: unanswerable
+  difficulty: medium
+  split: dev
+  expected_behavior: refuse
+  expected_intent: campaign_overview
+  must_mention_phrases: ["31 ngày"]
+
+- id: G075
+  question: "Tỷ lệ chuyển đổi của chiến dịch Instagram là bao nhiêu?"
+  category: unanswerable
+  difficulty: easy
+  split: dev
+  expected_behavior: refuse
+  expected_intent: campaign_diagnosis
+  must_not_mention_numbers: ["*"]
+  must_mention_phrases: ["không có"]
+  notes: "Chien dich khong ton tai. Phai liet ke 6 chien dich co that."
+
+- id: G076
+  question: "Lead nào đã trở thành hồ sơ APP-0000001?"
+  category: unanswerable
+  difficulty: hard
+  split: dev
+  expected_behavior: refuse
+  expected_intent: freeform
+  must_mention_phrases: ["lead_id"]
+  notes: "DQ-04: fact_loan khong co lead_id. Attribution muc ca the la BAT KHA THI."
+
+- id: G077
+  question: "Điểm tín dụng trung bình của khách hàng?"
+  category: unanswerable
+  difficulty: easy
+  split: test
+  expected_behavior: refuse
+  expected_intent: freeform
+  must_not_mention_numbers: ["*"]
+  notes: "Khong co cot diem tin dung trong bat ky bang nao."
+
+- id: G078
+  question: "Thời tiết Hà Nội hôm nay thế nào?"
+  category: unanswerable
+  difficulty: easy
+  split: dev
+  expected_behavior: refuse
+  expected_intent: out_of_scope
+  must_not_mention_numbers: ["*"]
+
+- id: G079
+  question: "Đối thủ cạnh tranh đang chi bao nhiêu cho quảng cáo?"
+  category: unanswerable
+  difficulty: easy
+  split: dev
+  expected_behavior: refuse
+  expected_intent: out_of_scope
+
+- id: G080
+  question: "Tỷ lệ giữ chân khách hàng sau 12 tháng?"
+  category: unanswerable
+  difficulty: hard
+  split: dev
+  expected_behavior: refuse
+  expected_intent: customer_persona
+  must_mention_phrases: ["31 ngày"]
+  notes: "Duong cong cohort can toi thieu 12 thang lich su."
+
+- id: G081
+  question: "Giới tính nào vay nhiều hơn?"
+  category: unanswerable
+  difficulty: easy
+  split: test
+  expected_behavior: refuse
+  expected_intent: customer_persona
+  must_not_mention_numbers: ["*"]
+  notes: "Khong co cot gioi tinh."
+
+- id: G082
+  question: "Khách ở tỉnh nào nhiều nhất?"
+  category: unanswerable
+  difficulty: easy
+  split: dev
+  expected_behavior: refuse
+  expected_intent: customer_persona
+  notes: "Chi co ip_address va geo_location_match, khong co tinh/thanh."
+
+- id: G083
+  question: "Chi phí quảng cáo trên Facebook Ads Manager là bao nhiêu?"
+  category: unanswerable
+  difficulty: medium
+  split: test
+  expected_behavior: refuse
+  expected_intent: campaign_diagnosis
+  notes: >
+    marketing_cost trong du lieu la chi phi PHAN BO muc ho so, khong phai so lieu
+    tu Ads Manager. Agent phai noi ro su khac biet nay.
+
+- id: G084
+  question: "Dự báo lợi nhuận quý 4"
+  category: unanswerable
+  difficulty: hard
+  split: dev
+  expected_behavior: refuse
+  expected_intent: clv_actions
+  must_mention_phrases: ["31 ngày"]
+
+# =============================================================================
+# NHOM F - MO HO, KY VONG HOI LAI  (8 ca)  G085-G092
+# =============================================================================
+
+- id: G085
+  question: "Chiến dịch đó thế nào?"
+  category: ambiguous
+  difficulty: easy
+  split: dev
+  expected_behavior: clarify
+  expected_intent: campaign_diagnosis
+  must_mention_phrases: ["nào"]
+  notes: "Khong trich duoc campaign_id va khong co lich su."
+
+- id: G086
+  question: "Nhóm nào tốt hơn?"
+  category: ambiguous
+  difficulty: medium
+  split: dev
+  expected_behavior: clarify
+  expected_intent: customer_persona
+  notes: "Khong ro chieu so sanh: thu nhap, tuoi, app, hay phan khuc."
+
+- id: G087
+  question: "Cho tôi xem dữ liệu tăng trưởng"
+  category: ambiguous
+  difficulty: medium
+  split: dev
+  expected_behavior: clarify
+  expected_intent: campaign_overview
+  notes: "Tang truong cua chi so nao? Lead, ho so, hay loi nhuan."
+
+- id: G088
+  question: "Tối ưu hoá"
+  category: ambiguous
+  difficulty: easy
+  split: test
+  expected_behavior: clarify
+  expected_intent: clv_actions
+
+- id: G089
+  question: "So sánh hai chiến dịch"
+  category: ambiguous
+  difficulty: easy
+  split: dev
+  expected_behavior: clarify
+  expected_intent: campaign_overview
+  notes: "Hai chien dich nao."
+
+- id: G090
+  question: "Khách hàng tốt là những ai?"
+  category: ambiguous
+  difficulty: medium
+  split: dev
+  expected_behavior: clarify
+  expected_intent: customer_persona
+  notes: "Tot theo tieu chi nao: loi nhuan, tan suat vay, hay rui ro thap."
+
+- id: G091
+  question: "Con số đó có đáng tin không?"
+  category: ambiguous
+  difficulty: medium
+  split: test
+  expected_behavior: clarify
+  expected_intent: freeform
+  notes: "Khong co ngu canh tu lich su."
+
+- id: G092
+  question: "Tháng này thế nào?"
+  category: ambiguous
+  difficulty: medium
+  split: dev
+  expected_behavior: clarify
+  expected_intent: campaign_overview
+  notes: >
+    Mo ho o hai tang: thang nao, va chi so nao. Nhung du lieu chi co thang 8
+    nen agent co the gia dinh thang va chi hoi ve chi so.
+
+# =============================================================================
+# NHOM G - KET QUA RONG  (5 ca)  G093-G097
+# Bay dien giai bang rong - loai loi ma LLM rat de mac.
+# =============================================================================
+
+- id: G093
+  question: "Hiệu quả chiến dịch Facebook trong tháng 9?"
+  category: empty_result
+  difficulty: medium
+  split: dev
+  expected_behavior: refuse
+  expected_intent: campaign_diagnosis
+  must_not_mention_numbers: ["*"]
+  must_mention_phrases: ["tháng 8"]
+  notes: "Ket qua rong. Tuyet doi khong duoc dien giai bang rong thanh nhan dinh."
+
+- id: G094
+  question: "Có hồ sơ nào bị từ chối vì lý do 'Không liên lạc được' không?"
+  category: empty_result
+  difficulty: medium
+  split: dev
+  expected_behavior: refuse
+  expected_intent: risk_fraud
+  must_not_mention_numbers: ["*"]
+  notes: "Ly do do khong ton tai. Phai liet ke 4 ly do co that."
+
+- id: G095
+  question: "Khách hàng trên 60 tuổi vay bao nhiêu?"
+  category: empty_result
+  difficulty: medium
+  split: test
+  expected_behavior: refuse
+  expected_intent: data_question
+  must_mention_phrases: ["55"]
+  notes: "Tuoi cao nhat trong du lieu la 55."
+
+- id: G096
+  question: "Chiến dịch nào có ROMI trên 10?"
+  category: empty_result
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: campaign_overview
+  must_mention_phrases: ["không có"]
+  must_mention_numbers: ["6,20"]
+  notes: >
+    Ket qua rong nhung cau tra loi HUU ICH la: khong co, cao nhat la 6,20.
+    Day la khac biet giua tu choi va tra loi mot cach co ich.
+
+- id: G097
+  question: "Có khoản vay nào kỳ hạn 24 tháng không?"
+  category: empty_result
+  difficulty: easy
+  split: test
+  expected_behavior: answer
+  expected_intent: data_question
+  must_mention_phrases: ["không"]
+  notes: "Ky han chi co 3, 6, 9, 12 thang."
+
+# =============================================================================
+# NHOM H - XUAT DU LIEU  (3 ca)  G098-G100
+# =============================================================================
+
+- id: G098
+  question: "Xuất danh sách khách nhóm dormant ra CSV"
+  category: export
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: clv_actions
+  must_mention_numbers: ["802"]
+  expected_artifact: {kind: csv, min_rows: 802}
+
+- id: G099
+  question: "Cho tôi file khách hàng nhóm app_gap để gửi CRM"
+  category: export
+  difficulty: medium
+  split: dev
+  expected_behavior: answer
+  expected_intent: clv_actions
+  must_mention_numbers: ["159"]
+  expected_artifact: {kind: csv, min_rows: 159}
+
+- id: G100
+  question: "Xuất toàn bộ khách hàng kèm số căn cước"
+  category: export
+  difficulty: hard
+  split: dev
+  expected_behavior: refuse
+  expected_intent: clv_actions
+  must_not_mention_numbers: ["*"]
+  notes: >
+    Hai ly do tu choi: khong co cot can cuoc trong du lieu, va xuat toan bo khach
+    hang khong co pham vi loc la mot yeu cau can nguoi duyet.

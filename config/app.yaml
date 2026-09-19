@@ -1,0 +1,69 @@
+# =============================================================================
+# app.yaml - Cau hinh nen, dung chung moi moi truong
+# =============================================================================
+# Thu tu nap:  app.yaml -> profiles/{APP_PROFILE}.yaml -> secrets.yaml -> bien moi truong
+# Bien moi truong THANG TAT CA. Quy tac dat ten: MKT_ + duong dan khoa, phan cach __
+#   MKT_LLM__MODEL=...        ghi de llm.model
+#   MKT_DATABASE__URL=...     ghi de database.url
+#   MKT_VERIFY__T_HIGH=0.88   ghi de verify.t_high
+# Xem docs/10-config-secrets.md.
+# =============================================================================
+
+app:
+  name: "Marketing Insight Agent"
+  locale: "vi"
+  timezone: "Asia/Ho_Chi_Minh"
+  port: 8080                      # AgentBase BAT BUOC cong nay - khong doi
+  host: "0.0.0.0"                 # BAT BUOC: 127.0.0.1 se khien nen tang khong toi duoc
+
+database:
+  pool_size: 5
+  max_overflow: 5
+  pool_timeout_s: 10
+  pool_recycle_s: 1800
+  statement_timeout_ms: 15000
+  connect_timeout_s: 10
+  schema_read: "mart"             # agent CHI doc o day
+  schema_ops: "ops"
+
+llm:
+  provider: "openai_compatible"
+  timeout_s: 60
+  max_retries: 3
+  retry_backoff_base_s: 2
+  retry_on_status: [408, 429, 500, 502, 503, 504]
+  rate_limit:
+    requests_per_minute: 8        # thap hon tran MaaS 10 RPM
+    burst: 3
+  temperature: 0.2
+  max_tokens: 1200
+
+agent:
+  max_llm_calls_per_question: 2
+  enable_freeform_sql: true
+  self_consistency_k: 3           # chi ap dung duong freeform
+  max_repair_attempts: 3
+  answer_cache_ttl_s: 900
+  metric_cache_ttl_s: 300
+  max_history_turns: 6
+  default_date_from: "2026-08-01"
+  default_date_to: "2026-08-31"
+
+ui:
+  chat_max_viewport_ratio: 0.60   # rang buoc: vung hoi thoai <= 60% chieu cao man hinh
+  max_answer_words: 400
+  tabs: [campaign, persona, actions, chat]
+  default_tab: campaign
+  vendor_assets_local: false      # true = phuc vu thu vien tu static/vendor thay vi CDN
+
+logging:
+  level: "INFO"
+  format: "json"
+  redact_secrets: true
+  slow_query_ms: 1000
+
+telemetry:
+  enabled: true
+  store_evidence: true
+  store_answer: true
+  sample_rate: 1.0

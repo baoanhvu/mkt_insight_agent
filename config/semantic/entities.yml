@@ -1,0 +1,325 @@
+# =============================================================================
+# entities.yml - Khai bao dataset va dimension cho semantic layer
+# =============================================================================
+# File nay + metrics.yml la NGUON SU THAT DUY NHAT ve y nghia du lieu.
+# LLM khong bao gio duoc nhin thay schema DB tho; no chi nhin thay file nay
+# thong qua schema_tool. Xem docs/05-semantic-layer.md muc 5.1.
+#
+# Quy tac sua file:
+#   1. Them dimension moi -> phai co label_vi va phai ton tai trong bang.
+#   2. Doi `version` moi khi thay doi -> ghi vao ops.agent_trace.metrics_version.
+#   3. Chay `pytest tests/test_metrics_contract.py` truoc khi commit.
+# =============================================================================
+
+version: "1.0.0"
+
+# -----------------------------------------------------------------------------
+# DATASETS - moi dataset la mot bang mart voi mot grain xac dinh
+# -----------------------------------------------------------------------------
+datasets:
+
+  application:
+    table: mart.mart_application
+    grain: "1 dong = 1 ho so vay (application)"
+    row_count_expected: 2687
+    default_date_column: create_at
+    description_vi: >
+      Bang det muc ho so vay. Da noi san campaign, P&L, dau vet so va thong tin
+      khach hang. Bao gom CA ho so bi tu choi - nhung ho so nay co chi phi nhung
+      khong co doanh thu, nen dong gop AM vao loi nhuan.
+    caveat_vi: >
+      1 062 / 2 687 ho so bi tu choi co loan_amount, tenure, nominal_interest_rate
+      va loan_balance deu NULL. Moi chi so trung binh phai khai bao ro mau so.
+
+  customer:
+    table: mart.mart_customer_value
+    grain: "1 dong = 1 khach hang"
+    row_count_expected: 2901
+    default_date_column: customer_open_date
+    description_vi: >
+      Tong hop muc khach hang. Gom ca 347 khach chua co ho so nao
+      (is_never_applied = true), nen mau so mac dinh KHONG phai 2 554.
+
+  segment:
+    table: mart.v_customer_segment
+    grain: "1 dong = 1 khach hang, co them cot segment"
+    row_count_expected: 2901
+    default_date_column: customer_open_date
+    description_vi: >
+      Giong dataset customer nhung co them cot `segment` tinh bang luat tuong minh.
+      Moi khach roi vao dung mot phan khuc; tong luon bang 100%.
+
+  campaign_daily:
+    table: mart.mart_campaign_daily
+    grain: "1 dong = 1 chien dich x 1 ngay"
+    row_count_expected: 186
+    default_date_column: activity_date
+    description_vi: >
+      Dem lead va dem ho so DOC LAP roi noi theo (campaign_id, ngay).
+    caveat_vi: >
+      Bang ho so vay khong co khoa ngoai ve bang lead, nen moi ty le pheu tinh
+      tu dataset nay la TY LE TONG HOP muc chien dich, KHONG phai attribution
+      tung lead. Xem docs/02-data-model.md muc 2.1.
+
+# -----------------------------------------------------------------------------
+# DIMENSIONS
+# -----------------------------------------------------------------------------
+# ordered: khai bao thu tu hien thi/sap xep cho dimension co thu tu tu nhien.
+# allowed_values: chot cung danh sach gia tri -> lop L3 entity grounding dung
+#                 de bat viec bia ten.
+# -----------------------------------------------------------------------------
+dimensions:
+
+  # --- Chien dich ---
+  campaign_id:
+    datasets: [application, campaign_daily]
+    column: campaign_id
+    label_vi: "Chiến dịch"
+    label_column: campaign_name
+    allowed_values:
+      - CMP-FB-001
+      - CMP-GG-001
+      - CMP-TT-001
+      - CMP-ZL-RL1
+      - CMP-PTN-MOMO
+      - CMP-PTN-BRK01
+
+  campaign_name:
+    datasets: [application]
+    column: campaign_name
+    label_vi: "Tên chiến dịch"
+    allowed_values:
+      - "Vay Tieu Dung - Digital Q3"
+      - "Vay Tin Chap - Google Search"
+      - "Vay Mua Sam - TikTok Awareness"
+      - "Vay Lai - Zalo Remarketing"
+      - "Vay Tieu Dung - Momo Widget"
+      - "Vay Tieu Dung - Broker Network"
+
+  channel:
+    datasets: [application]
+    column: channel
+    label_vi: "Kênh"
+    allowed_values: ["Facebook Ads", "Google Ads", "TikTok Ads", "Zalo Ads",
+                     "Partner App", "Broker Network"]
+
+  sub_channel:
+    datasets: [application]
+    column: sub_channel
+    label_vi: "Kênh chi tiết"
+    allowed_values: ["FB_Feed_Ads", "Search_Brand", "InFeed_Video",
+                     "ZNS_Remarketing", "Momo_Loan_Widget", "CTV_Referral"]
+    note_vi: "Day la KHOA NOI duy nhat giua bang lead va bang ho so vay."
+
+  partner_code:
+    datasets: [application]
+    column: partner_code
+    label_vi: "Đối tác"
+    allowed_values: ["DIRECT", "PTN-MOMO", "PTN-BROKER01"]
+
+  product_id:
+    datasets: [application]
+    column: product_id
+    label_vi: "Sản phẩm"
+    allowed_values: ["PRD-FL", "PRD-RL"]
+    note_vi: "PRD-FL = First Loan (khach moi). PRD-RL = Re-loan (tai vay)."
+
+  product_name:
+    datasets: [application]
+    column: product_name
+    label_vi: "Tên sản phẩm"
+    allowed_values: ["First Loan", "Re-loan"]
+
+  # --- Trang thai ho so ---
+  application_status:
+    datasets: [application]
+    column: application_status
+    label_vi: "Trạng thái hồ sơ"
+    allowed_values: ["REJECTED", "DISBURSED", "SETTLED"]
+    ordered: ["REJECTED", "DISBURSED", "SETTLED"]
+
+  is_rejected:
+    datasets: [application]
+    column: is_rejected
+    label_vi: "Bị từ chối"
+    type: boolean
+
+  is_disbursed:
+    datasets: [application]
+    column: is_disbursed
+    label_vi: "Đã giải ngân"
+    type: boolean
+
+  is_repeat_loan:
+    datasets: [application]
+    column: is_repeat_loan
+    label_vi: "Khoản vay lại"
+    type: boolean
+    note_vi: "loan_number_rank > 1. Tuong duong product_id = PRD-RL trong bo du lieu nay."
+
+  reason_level_1:
+    datasets: [application]
+    column: reason_level_1
+    label_vi: "Lý do từ chối"
+    allowed_values:
+      - "No xau CIC"
+      - "Thu nhap khong du dieu kien"
+      - "Ho so khong hop le"
+      - "Nghi ngo gian lan"
+    note_vi: "Chi co gia tri khi is_rejected = true; NULL o cac dong khac."
+
+  reason_level_2:
+    datasets: [application]
+    column: reason_level_2
+    label_vi: "Lý do từ chối chi tiết"
+    allowed_values:
+      - "Lich su no qua han >90 ngay"
+      - "Dang co no xau nhom 3-5"
+      - "Thu nhap duoi nguong toi thieu"
+      - "Khong chung minh duoc nguon thu nhap"
+      - "Thong tin ke khai khong khop"
+      - "Thieu giay to tuy than"
+      - "Thiet bi trung voi ho so khac da bi tu choi"
+      - "Dia chi IP khong khop noi o"
+
+  # --- Khach hang ---
+  income_band:
+    datasets: [application, customer, segment]
+    column: income_band
+    label_vi: "Nhóm thu nhập"
+    ordered: ["<8M", "8-12M", "12-20M", ">=20M"]
+    allowed_values: ["<8M", "8-12M", "12-20M", ">=20M"]
+    note_vi: "Nguong: <8tr / 8-12tr / 12-20tr / >=20tr VND mot thang."
+
+  age_band:
+    datasets: [application, customer, segment]
+    column: age_band
+    label_vi: "Nhóm tuổi"
+    ordered: ["20-25", "26-30", "31-35", "36-45", "46-55"]
+    allowed_values: ["20-25", "26-30", "31-35", "36-45", "46-55"]
+
+  occupation:
+    datasets: [application, customer, segment]
+    column: occupation
+    label_vi: "Nghề nghiệp"
+    allowed_values:
+      - "Nhan vien van phong"
+      - "Freelancer"
+      - "CBCNV"
+      - "Cong nhan"
+      - "Lai xe cong nghe"
+      - "Kinh doanh tu do"
+      - "Noi tro"
+    # Canh bao nay duoc compiler gan vao EvidenceSet va Narrator BAT BUOC nhac lai.
+    caveat_vi: >
+      Nghe nghiep KHONG phan hoa gia tri khach hang trong bo du lieu nay:
+      ANOVA 7 nhom cho F = 0,2163 va p = 0,9718. Chenh lech loi nhuan trung binh
+      (180k-220k tren n khoang 360 moi nhom) nam tron trong nhieu. Chi dung de
+      MO TA chan dung, khong dung de phan bo ngan sach hay xep hang.
+
+  has_app:
+    datasets: [application, customer, segment]
+    column: has_app
+    label_vi: "Có cài app"
+    type: boolean
+    caveat_vi: >
+      Khac biet giua co app va khong co app la TUONG QUAN, chua chung minh nhan qua.
+      Rat co the khach tot thi moi cai app, chu khong phai cai app lam ho tot len.
+
+  is_repeat_customer:
+    datasets: [customer, segment]
+    column: is_repeat_customer
+    label_vi: "Khách vay lại"
+    type: boolean
+
+  is_never_applied:
+    datasets: [customer, segment]
+    column: is_never_applied
+    label_vi: "Chưa từng nộp hồ sơ"
+    type: boolean
+
+  segment:
+    datasets: [segment]
+    column: segment
+    label_vi: "Phân khúc"
+    allowed_values:
+      - high_risk
+      - champion
+      - repeat_standard
+      - high_potential
+      - app_gap
+      - dormant
+      - rejected_only
+      - never_activated
+    ordered: [champion, repeat_standard, high_potential, app_gap, dormant,
+              rejected_only, never_activated, high_risk]
+    note_vi: "Tinh bang luat trong config/analytics.yaml. Tong luon bang 100% so khach."
+
+  # --- Dau vet so ---
+  device_os:
+    datasets: [application]
+    column: device_os
+    label_vi: "Hệ điều hành"
+    allowed_values: ["Android", "iOS", "Windows"]
+
+  device_price_segment:
+    datasets: [application]
+    column: device_price_segment
+    label_vi: "Phân khúc thiết bị"
+    ordered: ["Low-end", "Mid-range", "High-end"]
+    allowed_values: ["Low-end", "Mid-range", "High-end"]
+
+  geo_location_match:
+    datasets: [application]
+    column: geo_location_match
+    label_vi: "Vị trí khớp"
+    type: boolean
+    note_vi: "false = tin hieu rui ro: ty le tu choi 45,6% so voi 39,1%."
+
+  # --- Thoi gian ---
+  activity_date:
+    datasets: [campaign_daily]
+    column: activity_date
+    label_vi: "Ngày"
+    type: date
+
+  create_date:
+    datasets: [application]
+    column: "create_at::date"
+    label_vi: "Ngày tạo hồ sơ"
+    type: date
+
+# -----------------------------------------------------------------------------
+# RANG BUOC TOAN CUC
+# -----------------------------------------------------------------------------
+constraints:
+
+  # Khoang thoi gian CO du lieu giao dich. Moi truy van ra ngoai khoang nay
+  # phai tra loi INSUFFICIENT_HISTORY thay vi tra ve bang rong.
+  data_window:
+    transactional:
+      from: "2026-08-01"
+      to: "2026-08-31"
+      days: 31
+      dq_ref: DQ-03
+      message_vi: >
+        Du lieu giao dich chi co tu 01/08/2026 den 31/08/2026 (31 ngay).
+        Khong the so sanh theo thang, theo quy hay theo nam.
+    customer_open_date:
+      from: "2023-07-29"
+      to: "2026-08-31"
+
+  # Chi so bi CAM hoan toan vi du lieu khong cho phep tinh
+  forbidden_metrics:
+    - id: month_over_month_growth
+      reason_vi: "Chi co 31 ngay du lieu giao dich (DQ-03)."
+    - id: year_over_year_growth
+      reason_vi: "Chi co 31 ngay du lieu giao dich (DQ-03)."
+    - id: cohort_retention_curve
+      reason_vi: "Can toi thieu 12 thang lich su de duong cong cohort co y nghia."
+    - id: lead_level_attribution
+      reason_vi: >
+        Bang ho so vay khong co lead_id. Khong the quy mot ho so ve dung mot lead.
+
+  max_rows_per_query: 1000
+  default_limit: 100

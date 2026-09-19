@@ -1,0 +1,59 @@
+# =============================================================================
+# freeform - Duong thoat khi khong khop playbook nao
+# =============================================================================
+# Day la duong DUY NHAT cho phep LLM sinh SQL. No di qua 7 cua kiem tra
+# (docs/05-semantic-layer.md muc 5.6) va bi gioi han chat hon moi playbook khac.
+#
+# Neu mot loai cau hoi roi xuong day THUONG XUYEN, do la tin hieu can BO SUNG
+# CHI SO vao metrics.yml chu khong phai noi rao o day.
+# Theo doi bang: GET /api/admin/quality -> freeform_rate.
+# =============================================================================
+
+id: freeform
+label_vi: "Câu hỏi tự do"
+intent: FREEFORM
+requires_entities: []
+prompt: narrate_campaign_overview
+comparison_policy: significance_required
+max_words: 250
+
+sql_guard:
+  allowed_schemas: [mart]
+  allowed_tables:
+    - mart.mart_application
+    - mart.mart_customer_value
+    - mart.mart_campaign_daily
+    - mart.dim_campaign
+    - mart.v_customer_segment
+  forbidden_statements: [CREATE, DROP, INSERT, UPDATE, DELETE, MERGE, ALTER,
+                         TRUNCATE, GRANT, REVOKE, COPY, CALL, VACUUM, SET]
+  require_single_select: true
+  require_limit: true
+  default_limit: 500
+  max_limit: 1000
+  explain_dry_run: true
+  max_repair_attempts: 3
+
+self_consistency:
+  enabled: true                 # profile greennode dat k=1 de tiet kiem quota
+  k: 3
+  temperature: 0.8
+  min_top_cluster_share: 0.60   # duoi nguong -> ABSTAIN thay vi doan
+
+sections:
+  - id: answer
+    label_vi: "Kết quả"
+    fact_id: F1
+    source: sql_tool
+    max_words: 200
+
+  - id: sql_shown
+    label_vi: "Truy vấn đã chạy"
+    source: static
+    always_show: true           # duong freeform LUON hien SQL, khong cho an
+
+# Duong nay khong co chi so da kiem chung nen phai noi ro voi nguoi dung
+required_caveats:
+  - text_vi: >
+      Câu hỏi này không khớp chỉ số nào đã được kiểm chứng sẵn, nên truy vấn được
+      dựng riêng. Hãy đối chiếu SQL bên dưới trước khi dùng con số để ra quyết định.

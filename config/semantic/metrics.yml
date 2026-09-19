@@ -1,0 +1,803 @@
+# =============================================================================
+# metrics.yml - Catalog chi so
+# =============================================================================
+# LLM KHONG VIET SQL. No chon chi so tu file nay va phat ra mot MetricRequest.
+# Compiler (app/semantic/compiler.py) sinh SQL tham so hoa tu day.
+# Xem docs/05-semantic-layer.md.
+#
+# CACH DOC MOT KHAI BAO CHI SO
+#   sql               bieu thuc TONG HOP, khong phai cau SELECT day du.
+#                     Compiler boc no vao SELECT ... FROM <dataset.table> GROUP BY ...
+#   unit              count | vnd | ratio | percent | days | rate_pct_month | text
+#   format            dinh dang hien thi; xem app/web/formatting.py
+#   higher_is_better  dung de to mau va de lop L5 bat loi "doc nguoc dau"
+#   min_sample_size   n duoi nguong nay -> tra INSUFFICIENT_SAMPLE, KHONG tra so
+#   caveat_vi         BAT BUOC xuat hien trong cau tra loi; lop L3 kiem tra
+#   reference         gia tri da kiem chung -> tests/test_metrics_contract.py
+#
+# QUY TAC SUA
+#   1. Doi `sql` -> phai cap nhat `reference` va chay test_metrics_contract.py
+#   2. Tang `version` moi lan doi -> ghi vao ops.agent_trace.metrics_version
+#   3. KHONG BAO GIO dua cong thuc chi so vao prompt. Prompt dieu khien ngon ngu,
+#      file nay dieu khien su that.
+#
+# TAT CA gia tri trong `reference` da duoc kiem chung ngay 2026-09-19 bang cach
+# chay chinh cac bieu thuc SQL nay tren du lieu that.
+# =============================================================================
+
+version: "1.0.0"
+validated_at: "2026-09-19"
+validated_against: "data/full_schema_mock_v2.xlsx"
+
+# Lat cat mac dinh dung cho moi gia tri trong khoi `reference`
+reference_slice:
+  date_from: "2026-08-01"
+  date_to: "2026-09-01"     # exclusive
+
+# =============================================================================
+# CAC KHOI YAML DUNG LAI  (YAML anchors)
+# =============================================================================
+_anchors:
+  default_app_dims: &default_app_dims
+    [campaign_id, campaign_name, channel, sub_channel, partner_code, product_id,
+     application_status, income_band, age_band, occupation, has_app, device_os,
+     device_price_segment, geo_location_match, reason_level_1, reason_level_2,
+     create_date, is_repeat_loan]
+
+  lead_funnel_caveat: &lead_funnel_caveat >
+    Ty le tong hop muc chien dich, KHONG phai attribution tung lead: bang ho so vay
+    khong co khoa noi ve bang lead (xem docs/02-data-model.md muc 2.1).
+
+  has_app_correlation_caveat: &has_app_correlation_caveat >
+    Khac biet giua nhom co app va khong co app la TUONG QUAN, chua chung minh nhan qua.
+
+
+metrics:
+
+# =============================================================================
+# NHOM 1 - DEM VA PHEU  (dataset: application)
+# =============================================================================
+
+  applications:
+    label_vi: "Số hồ sơ"
+    description_vi: >
+      Dem ho so vay duoc tao trong ky, GOM CA ho so sau do bi tu choi.
+    dataset: application
+    sql: "COUNT(*)"
+    unit: count
+    format: "#,##0"
+    higher_is_better: null
+    allowed_dimensions: [campaign_id, campaign_name, channel, sub_channel, partner_code,
+                         product_id, application_status, income_band, age_band, occupation,
+                         has_app, device_os, device_price_segment, geo_location_match,
+                         reason_level_1, reason_level_2, create_date, is_repeat_loan]
+    reference:
+      total: 2687
+      by_campaign: {CMP-FB-001: 525, CMP-GG-001: 478, CMP-TT-001: 489,
+                    CMP-ZL-RL1: 486, CMP-PTN-MOMO: 375, CMP-PTN-BRK01: 334}
+
+  disbursed_loans:
+    label_vi: "Số khoản giải ngân"
+    description_vi: >
+      Ho so co disbursement_date khac NULL. Khong giao voi tap ho so bi tu choi.
+    dataset: application
+    sql: "COUNT(*) FILTER (WHERE is_disbursed)"
+    unit: count
+    format: "#,##0"
+    higher_is_better: true
+    allowed_dimensions: *default_app_dims
+    reference:
+      total: 1625
+      by_campaign: {CMP-FB-001: 306, CMP-GG-001: 282, CMP-TT-001: 218,
+                    CMP-ZL-RL1: 447, CMP-PTN-MOMO: 209, CMP-PTN-BRK01: 163}
+
+  rejected_loans:
+    label_vi: "Số hồ sơ bị từ chối"
+    dataset: application
+    sql: "COUNT(*) FILTER (WHERE is_rejected)"
+    unit: count
+    format: "#,##0"
+    higher_is_better: false
+    reference:
+      total: 1062
+      by_reason_level_1: {"No xau CIC": 364, "Thu nhap khong du dieu kien": 327,
+                          "Ho so khong hop le": 215, "Nghi ngo gian lan": 156}
+
+  approval_rate:
+    label_vi: "Tỷ lệ duyệt"
+    description_vi: >
+      So khoan giai ngan chia cho tong so ho so, trong cung ky va cung lat cat.
+      Mau so GOM ca ho so bi tu choi - do la chu dich.
+    dataset: application
+    sql: |
+      CASE WHEN COUNT(*) = 0 THEN NULL
+           ELSE COUNT(*) FILTER (WHERE is_disbursed)::numeric / COUNT(*) END
+    unit: ratio
+    format: "0.0%"
+    higher_is_better: true
+    min_sample_size: 30
+    thresholds:
+      critical: {lt: 0.45}
+      warning:  {lt: 0.55}
+      good:     {gte: 0.70}
+    reference:
+      total: 0.604764
+      by_campaign: {CMP-FB-001: 0.583, CMP-GG-001: 0.590, CMP-TT-001: 0.446,
+                    CMP-ZL-RL1: 0.920, CMP-PTN-MOMO: 0.557, CMP-PTN-BRK01: 0.488}
+
+  rejection_rate:
+    label_vi: "Tỷ lệ từ chối"
+    dataset: application
+    sql: |
+      CASE WHEN COUNT(*) = 0 THEN NULL
+           ELSE COUNT(*) FILTER (WHERE is_rejected)::numeric / COUNT(*) END
+    unit: ratio
+    format: "0.0%"
+    higher_is_better: false
+    min_sample_size: 30
+    reference:
+      total: 0.395236
+      by_geo_location_match: {"false": 0.456, "true": 0.391}
+      by_device_os: {Windows: 0.492, Android: 0.391, iOS: 0.389}
+
+  leads:
+    label_vi: "Số lead"
+    description_vi: "Dem lead marketing sinh ra trong ky."
+    dataset: campaign_daily
+    sql: "SUM(leads)"
+    unit: count
+    format: "#,##0"
+    allowed_dimensions: [campaign_id, activity_date]
+    reference:
+      total: 14530
+      by_campaign: {CMP-FB-001: 3454, CMP-GG-001: 2287, CMP-TT-001: 4280,
+                    CMP-ZL-RL1: 1414, CMP-PTN-MOMO: 1978, CMP-PTN-BRK01: 1117}
+
+  lead_to_application_rate:
+    label_vi: "Tỷ lệ lead thành hồ sơ"
+    dataset: campaign_daily
+    sql: |
+      CASE WHEN SUM(leads) = 0 THEN NULL
+           ELSE SUM(applications)::numeric / SUM(leads) END
+    unit: ratio
+    format: "0.0%"
+    higher_is_better: true
+    min_sample_size: 100
+    allowed_dimensions: [campaign_id, activity_date]
+    caveat_vi: >
+      Ty le tong hop muc chien dich, KHONG phai attribution tung lead: bang ho so
+      vay khong co khoa noi ve bang lead (xem docs/02-data-model.md muc 2.1).
+      Lead va ho so duoc dem doc lap roi chia cho nhau trong cung ky.
+    reference:
+      total: 0.184928
+      by_campaign: {CMP-FB-001: 0.152, CMP-GG-001: 0.209, CMP-TT-001: 0.114,
+                    CMP-ZL-RL1: 0.344, CMP-PTN-MOMO: 0.190, CMP-PTN-BRK01: 0.299}
+
+  lead_to_disbursed_rate:
+    label_vi: "Tỷ lệ lead thành khoản giải ngân"
+    dataset: campaign_daily
+    sql: |
+      CASE WHEN SUM(leads) = 0 THEN NULL
+           ELSE SUM(disbursed)::numeric / SUM(leads) END
+    unit: ratio
+    format: "0.0%"
+    higher_is_better: true
+    min_sample_size: 100
+    allowed_dimensions: [campaign_id, activity_date]
+    caveat_vi: *lead_funnel_caveat
+    reference:
+      total: 0.111838
+
+# =============================================================================
+# NHOM 2 - QUY MO CHO VAY  (dataset: application)
+# =============================================================================
+
+  total_loan_amount:
+    label_vi: "Tổng dư nợ giải ngân"
+    dataset: application
+    sql: "SUM(loan_amount)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: true
+    description_vi: >
+      loan_amount la NULL o 1 062 ho so bi tu choi nen SUM tu dong bo qua chung.
+    reference:
+      total: 59815781194
+      by_campaign_approx: {CMP-ZL-RL1: 24441080000, CMP-FB-001: 8995387000}
+
+  avg_loan_amount:
+    label_vi: "Khoản vay trung bình"
+    description_vi: >
+      MAU SO chi gom ho so DA GIAI NGAN, vi loan_amount la NULL o ho so bi tu choi.
+      Day khong phai loi - do la dinh nghia. Dung SUM(loan_amount)/COUNT(*) se sai 39%.
+    dataset: application
+    sql: "AVG(loan_amount)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: true
+    min_sample_size: 30
+    reference:
+      by_campaign: {CMP-ZL-RL1: 54678040, CMP-GG-001: 30985293, CMP-FB-001: 29396690,
+                    CMP-TT-001: 30498347, CMP-PTN-MOMO: 30431978, CMP-PTN-BRK01: 28420459}
+      by_is_repeat_loan: {"true": 54678040, "false": 30029455}
+
+  avg_interest_rate:
+    label_vi: "Lãi suất danh nghĩa trung bình"
+    dataset: application
+    sql: "AVG(nominal_interest_rate)"
+    unit: rate_pct_month
+    format: "0.00"
+    reference:
+      range: [1.50, 2.60]
+      by_campaign_approx: {CMP-ZL-RL1: 2.05, CMP-FB-001: 2.06, CMP-GG-001: 2.03}
+
+  avg_tenure:
+    label_vi: "Kỳ hạn trung bình"
+    dataset: application
+    sql: "AVG(tenure)"
+    unit: months
+    format: "0.0"
+    reference:
+      by_campaign_approx: {CMP-ZL-RL1: 7.8, CMP-TT-001: 5.6, CMP-FB-001: 6.3}
+
+  repeat_loan_share:
+    label_vi: "Tỷ trọng khoản vay lại"
+    dataset: application
+    sql: |
+      CASE WHEN COUNT(*) = 0 THEN NULL
+           ELSE COUNT(*) FILTER (WHERE is_repeat_loan)::numeric / COUNT(*) END
+    unit: ratio
+    min_sample_size: 30
+    format: "0.0%"
+    reference:
+      total: 0.1809     # 486 / 2687
+
+# =============================================================================
+# NHOM 3 - DOANH THU  (dataset: application)
+# =============================================================================
+
+  total_revenue:
+    label_vi: "Tổng doanh thu"
+    description_vi: >
+      interest_income + overdue_interest + early_paid_off_fee + processing_fee.
+      Ho so bi tu choi co doanh thu bang 0 (bat bien INV-6).
+    dataset: application
+    sql: "SUM(total_revenue)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: true
+    reference:
+      total: 1863241782
+      by_campaign: {CMP-ZL-RL1: 759988373, CMP-FB-001: 281728026, CMP-GG-001: 274635906,
+                    CMP-TT-001: 206341130, CMP-PTN-MOMO: 197521115, CMP-PTN-BRK01: 143027232}
+
+  interest_income:
+    label_vi: "Thu nhập lãi"
+    dataset: application
+    sql: "SUM(interest_income)"
+    unit: vnd
+    format: "#,##0"
+    reference:
+      by_campaign: {CMP-ZL-RL1: 474633859, CMP-FB-001: 176959078, CMP-GG-001: 169130819,
+                    CMP-TT-001: 128459664, CMP-PTN-MOMO: 122982596, CMP-PTN-BRK01: 89645425}
+
+  processing_fee_revenue:
+    label_vi: "Phí xử lý hồ sơ"
+    dataset: application
+    sql: "SUM(processing_fee)"
+    unit: vnd
+    format: "#,##0"
+    reference:
+      by_campaign: {CMP-ZL-RL1: 244410839, CMP-FB-001: 89953875, CMP-GG-001: 87378529}
+
+  overdue_interest:
+    label_vi: "Lãi quá hạn"
+    dataset: application
+    sql: "SUM(overdue_interest)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    description_vi: "Doanh thu nhung dong thoi la tin hieu rui ro."
+
+  early_paid_off_fee:
+    label_vi: "Phí tất toán sớm"
+    dataset: application
+    sql: "SUM(early_paid_off_fee)"
+    unit: vnd
+    format: "#,##0"
+
+# =============================================================================
+# NHOM 4 - CHI PHI  (dataset: application)
+# =============================================================================
+
+  total_cost:
+    label_vi: "Tổng chi phí"
+    description_vi: >
+      loan_processing_cost + funding_cost + lead_cost + credit_loss + operation_cost
+      + marketing_cost + partner_fee + collection_cost.
+      Ho so bi tu choi VAN phat sinh lead_cost, marketing_cost, operation_cost va
+      loan_processing_cost - nen chung dong gop AM vao loi nhuan.
+    dataset: application
+    sql: "SUM(total_cost)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    reference:
+      total: 1353389572
+      by_campaign: {CMP-ZL-RL1: 367489885, CMP-PTN-MOMO: 215050890,
+                    CMP-PTN-BRK01: 209822106, CMP-FB-001: 203960727,
+                    CMP-GG-001: 186471566, CMP-TT-001: 170594398}
+
+  acquisition_spend:
+    label_vi: "Chi phí thu hút"
+    description_vi: >
+      marketing_cost + lead_cost, cong tren TAT CA ho so ke ca bi tu choi.
+      KHONG gom partner_fee - partner_fee duoc xep vao chi phi van hanh va nam
+      trong total_cost. Day la mot lua chon co the tranh luan; xem
+      docs/14-roadmap-risks.md cau hoi Q7.
+    dataset: application
+    sql: "SUM(acquisition_spend)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    reference:
+      total: 310399743
+      by_campaign: {CMP-PTN-BRK01: 36181832, CMP-PTN-MOMO: 43143284,
+                    CMP-TT-001: 53425055}
+
+  marketing_cost:
+    label_vi: "Chi phí marketing"
+    dataset: application
+    sql: "SUM(marketing_cost)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    reference:
+      by_campaign: {CMP-ZL-RL1: 44648700, CMP-FB-001: 39372207, CMP-GG-001: 37422699,
+                    CMP-TT-001: 34966759, CMP-PTN-MOMO: 29196138, CMP-PTN-BRK01: 23736044}
+
+  lead_cost:
+    label_vi: "Chi phí lead"
+    dataset: application
+    sql: "SUM(lead_cost)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    reference:
+      by_campaign: {CMP-ZL-RL1: 18642161, CMP-FB-001: 19920326, CMP-TT-001: 18458296,
+                    CMP-GG-001: 17643479, CMP-PTN-MOMO: 13947145, CMP-PTN-BRK01: 12445788}
+
+  partner_fee:
+    label_vi: "Phí đối tác"
+    description_vi: "Chi phat sinh o hai chien dich doi tac: Broker va Momo."
+    dataset: application
+    sql: "SUM(partner_fee)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    reference:
+      by_campaign: {CMP-PTN-BRK01: 92650696, CMP-PTN-MOMO: 76323400,
+                    CMP-FB-001: 0, CMP-GG-001: 0, CMP-TT-001: 0, CMP-ZL-RL1: 0}
+
+  partner_fee_share:
+    label_vi: "Tỷ trọng phí đối tác trên tổng chi phí"
+    dataset: application
+    sql: |
+      CASE WHEN SUM(total_cost) = 0 THEN NULL
+           ELSE SUM(partner_fee)::numeric / SUM(total_cost) END
+    unit: ratio
+    format: "0.0%"
+    min_sample_size: 30
+    higher_is_better: false
+    thresholds:
+      critical: {gte: 0.35}
+      warning:  {gte: 0.15}
+    reference:
+      by_campaign: {CMP-PTN-BRK01: 0.4416, CMP-PTN-MOMO: 0.3549}
+
+  funding_cost:
+    label_vi: "Chi phí vốn"
+    dataset: application
+    sql: "SUM(funding_cost)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    reference:
+      by_campaign: {CMP-ZL-RL1: 195528680, CMP-FB-001: 71963097, CMP-GG-001: 69902820}
+
+  credit_loss:
+    label_vi: "Tổn thất tín dụng"
+    dataset: application
+    sql: "SUM(credit_loss)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    reference:
+      by_campaign: {CMP-ZL-RL1: 52603689, CMP-TT-001: 23439604, CMP-FB-001: 23083895}
+
+  credit_loss_rate:
+    label_vi: "Tỷ lệ tổn thất tín dụng"
+    description_vi: "credit_loss chia cho tong du no giai ngan."
+    dataset: application
+    sql: |
+      CASE WHEN SUM(loan_amount) IS NULL OR SUM(loan_amount) = 0 THEN NULL
+           ELSE SUM(credit_loss)::numeric / SUM(loan_amount) END
+    unit: ratio
+    format: "0.00%"
+    higher_is_better: false
+    min_sample_size: 30
+
+  operation_cost:
+    label_vi: "Chi phí vận hành"
+    dataset: application
+    sql: "SUM(operation_cost)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+
+  collection_cost:
+    label_vi: "Chi phí thu hồi nợ"
+    dataset: application
+    sql: "SUM(collection_cost)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+
+  loan_processing_cost:
+    label_vi: "Chi phí xử lý hồ sơ"
+    dataset: application
+    sql: "SUM(loan_processing_cost)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+
+# =============================================================================
+# NHOM 5 - HIEU QUA  (dataset: application)  <- nhom quan trong nhat cho D1
+# =============================================================================
+
+  net_profit:
+    label_vi: "Lợi nhuận ròng"
+    description_vi: "total_revenue - total_cost o muc ho so, roi cong len."
+    dataset: application
+    sql: "SUM(net_profit)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: true
+    thresholds:
+      critical: {lt: 0}
+    reference:
+      total: 509852210
+      by_campaign: {CMP-ZL-RL1: 392498488, CMP-GG-001: 88164340, CMP-FB-001: 77767299,
+                    CMP-TT-001: 35746732, CMP-PTN-MOMO: -17529775, CMP-PTN-BRK01: -66794874}
+
+  romi:
+    label_vi: "ROMI"
+    description_vi: >
+      Loi nhuan rong chia cho chi phi thu hut.
+      ROMI = 1,0 nghia la moi dong chi thu hut mang ve mot dong loi nhuan.
+      ROMI am nghia la chien dich dang lo sau khi tru MOI chi phi.
+    dataset: application
+    sql: |
+      CASE WHEN SUM(acquisition_spend) = 0 THEN NULL
+           ELSE SUM(net_profit) / SUM(acquisition_spend) END
+    unit: ratio
+    format: "0.00"
+    higher_is_better: true
+    min_sample_size: 30
+    thresholds:
+      critical: {lt: 0}
+      warning:  {lt: 1.0}
+      good:     {gte: 2.0}
+    # LUU Y: day la gia tri CHINH XAC do SQL tra ve. Gia tri HIEN THI (format "0.00")
+    # la 6,20 / 1,60 / 1,31 / 0,67 / -0,41 / -1,85 - do la con so xuat hien trong
+    # tai lieu va trong golden set must_mention_numbers.
+    reference:
+      total: 1.642566
+      by_campaign: {CMP-ZL-RL1: 6.201503, CMP-GG-001: 1.601062, CMP-FB-001: 1.311587,
+                    CMP-TT-001: 0.669101, CMP-PTN-MOMO: -0.406315, CMP-PTN-BRK01: -1.846089}
+      by_campaign_display: {CMP-ZL-RL1: 6.20, CMP-GG-001: 1.60, CMP-FB-001: 1.31,
+                            CMP-TT-001: 0.67, CMP-PTN-MOMO: -0.41, CMP-PTN-BRK01: -1.85}
+
+  cost_per_disbursed:
+    label_vi: "Chi phí thu hút / khoản giải ngân"
+    dataset: application
+    sql: |
+      CASE WHEN COUNT(*) FILTER (WHERE is_disbursed) = 0 THEN NULL
+           ELSE SUM(acquisition_spend) / COUNT(*) FILTER (WHERE is_disbursed) END
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    min_sample_size: 30
+    reference:
+      by_campaign: {CMP-ZL-RL1: 141590, CMP-FB-001: 193766, CMP-GG-001: 195270,
+                    CMP-PTN-MOMO: 206427, CMP-PTN-BRK01: 221974, CMP-TT-001: 245069}
+
+  cost_per_application:
+    label_vi: "Chi phí thu hút / hồ sơ"
+    dataset: application
+    sql: |
+      CASE WHEN COUNT(*) = 0 THEN NULL
+           ELSE SUM(acquisition_spend) / COUNT(*) END
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    min_sample_size: 30
+
+  cost_per_lead:
+    label_vi: "Chi phí / lead"
+    description_vi: >
+      acquisition_spend chia cho so lead. Luu y: acquisition_spend ghi nhan o muc
+      HO SO, con lead dem o bang khac - day la ty le tong hop, khong phai chi phi
+      thuc te cua tung lead.
+    dataset: campaign_daily
+    sql: |
+      CASE WHEN SUM(leads) = 0 THEN NULL
+           ELSE SUM(acquisition_spend) / SUM(leads) END
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: false
+    allowed_dimensions: [campaign_id, activity_date]
+    caveat_vi: *lead_funnel_caveat
+
+  profit_per_disbursed:
+    label_vi: "Lợi nhuận / khoản giải ngân"
+    dataset: application
+    sql: |
+      CASE WHEN COUNT(*) FILTER (WHERE is_disbursed) = 0 THEN NULL
+           ELSE SUM(net_profit) / COUNT(*) FILTER (WHERE is_disbursed) END
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: true
+    min_sample_size: 30
+    reference:
+      by_campaign: {CMP-ZL-RL1: 878073, CMP-GG-001: 312640, CMP-FB-001: 254142,
+                    CMP-TT-001: 163976, CMP-PTN-MOMO: -83875, CMP-PTN-BRK01: -409785}
+
+  profit_margin:
+    label_vi: "Biên lợi nhuận"
+    dataset: application
+    sql: |
+      CASE WHEN SUM(total_revenue) = 0 THEN NULL
+           ELSE SUM(net_profit) / SUM(total_revenue) END
+    unit: ratio
+    format: "0.0%"
+    higher_is_better: true
+    min_sample_size: 30
+
+# =============================================================================
+# NHOM 6 - RUI RO VA GIAN LAN  (dataset: application)
+# =============================================================================
+
+  avg_days_late:
+    label_vi: "Số ngày trễ trung bình"
+    description_vi: "Trung binh max_dayslate tren cac ho so DA GIAI NGAN."
+    dataset: application
+    sql: "AVG(max_dayslate)"
+    unit: days
+    format: "0.0"
+    higher_is_better: false
+    min_sample_size: 30
+
+  fraud_signal_rate:
+    label_vi: "Tỷ lệ hồ sơ có tín hiệu rủi ro vị trí"
+    description_vi: "geo_location_match = false."
+    dataset: application
+    sql: |
+      CASE WHEN COUNT(*) = 0 THEN NULL
+           ELSE COUNT(*) FILTER (WHERE NOT geo_location_match)::numeric / COUNT(*) END
+    unit: ratio
+    format: "0.0%"
+    higher_is_better: false
+    min_sample_size: 30
+    reference:
+      total: 0.067     # 180 / 2687
+
+  avg_form_filling_time:
+    label_vi: "Thời gian điền form trung bình"
+    description_vi: >
+      Don vi giay. 9 gia tri khong duong (thap nhat -53) da duoc chuyen thanh NULL
+      trong mart (DQ-02), nen chung khong tinh vao mau so.
+    dataset: application
+    sql: "AVG(form_filling_time_sec)"
+    unit: seconds
+    format: "#,##0"
+    min_sample_size: 30
+
+# =============================================================================
+# NHOM 7 - KHACH HANG VA CLV  (dataset: customer / segment)
+# =============================================================================
+
+  customers:
+    label_vi: "Số khách hàng"
+    description_vi: >
+      Dem tren dataset customer. MAC DINH gom ca 347 khach chua co ho so nao.
+      Muon chi dem khach da nop ho so thi them filter n_applications > 0.
+    dataset: customer
+    sql: "COUNT(*)"
+    unit: count
+    format: "#,##0"
+    allowed_dimensions: [income_band, age_band, occupation, has_app,
+                         is_repeat_customer, is_never_applied, segment]
+    reference:
+      total: 2901
+      with_application: 2554
+      never_applied: 347
+
+  repeat_customer_rate:
+    label_vi: "Tỷ lệ khách vay lại"
+    description_vi: >
+      Ty le khach co max_loan_rank > 1. LUON phai kem khoang tin cay Wilson va co mau.
+    dataset: customer
+    sql: |
+      CASE WHEN COUNT(*) = 0 THEN NULL
+           ELSE COUNT(*) FILTER (WHERE is_repeat_customer)::numeric / COUNT(*) END
+    unit: ratio
+    format: "0.0%"
+    higher_is_better: true
+    min_sample_size: 30
+    requires_confidence_interval: true
+    reference:
+      among_applied: 0.138            # 353 / 2554
+      by_income_band: {"<8M": 0.075, "8-12M": 0.106, "12-20M": 0.207, ">=20M": 0.862}
+      by_has_app: {"true": 0.166, "false": 0.103}
+      by_age_band: {"20-25": 0.088, "26-30": 0.126, "31-35": 0.144,
+                    "36-45": 0.118, "46-55": 0.216}
+      small_sample_cells: [">=20M"]   # n = 29, duoi nguong 30
+      wilson_ci_95:
+        "12-20M": [0.180, 0.237]
+        "8-12M":  [0.089, 0.126]
+        "<8M":    [0.057, 0.097]
+        ">=20M":  [0.694, 0.945]      # KHONG DUOC DUNG: n = 29
+
+  avg_profit_per_customer:
+    label_vi: "Lợi nhuận trung bình / khách"
+    description_vi: >
+      CANH BAO: phan bo loi nhuan cuc ky lech phai. Trung binh 199 629 VND nhung
+      TRUNG VI la -86 175 VND, va 53,8% khach co loi nhuan am. Top 10% khach dong
+      gop 81,9% tong loi nhuan. KHONG BAO GIO bao cao chi so nay ma khong kem
+      median_profit_per_customer.
+    dataset: customer
+    sql: "AVG(profit_to_date)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: true
+    min_sample_size: 30
+    must_report_with: [median_profit_per_customer, negative_profit_share]
+    reference:
+      among_applied: 199629
+      by_income_band: {"<8M": 131831, "8-12M": 173352, "12-20M": 281679, ">=20M": 451054}
+      by_has_app: {"true": 234666, "false": 154195}
+      by_is_repeat_customer: {"true": 1111894, "false": 53318}
+
+  median_profit_per_customer:
+    label_vi: "Lợi nhuận trung vị / khách"
+    description_vi: >
+      Chong chiu tot hon voi duoi dai. Voi bo du lieu nay, trung vi AM trong khi
+      trung binh duong - do la thong tin quan trong nhat ve co cau khach hang.
+    dataset: customer
+    sql: "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY profit_to_date)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: true
+    min_sample_size: 30
+    reference:
+      among_applied: -86175
+      by_income_band: {"<8M": -110455, "8-12M": -96858, "12-20M": 18130, ">=20M": 568497}
+
+  negative_profit_share:
+    label_vi: "Tỷ lệ khách sinh lời âm"
+    description_vi: >
+      Ty le khach co profit_to_date < 0. Chi so nay ton tai de chan viec bao cao
+      trung binh duong ma khong noi ro phan lon khach dang lo.
+    dataset: customer
+    sql: |
+      CASE WHEN COUNT(*) = 0 THEN NULL
+           ELSE COUNT(*) FILTER (WHERE profit_to_date < 0)::numeric / COUNT(*) END
+    unit: ratio
+    format: "0.0%"
+    higher_is_better: false
+    min_sample_size: 30
+    reference:
+      among_applied: 0.538            # 1374 / 2554
+
+  clv_to_date:
+    label_vi: "CLV đã thực hiện"
+    description_vi: "Tong loi nhuan rong da phat sinh. Khong co gia dinh nao."
+    dataset: customer
+    sql: "SUM(profit_to_date)"
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: true
+    reference:
+      total: 509852210
+
+  app_adoption_rate:
+    label_vi: "Tỷ lệ cài app"
+    dataset: customer
+    sql: |
+      CASE WHEN COUNT(*) = 0 THEN NULL
+           ELSE COUNT(*) FILTER (WHERE has_app)::numeric / COUNT(*) END
+    unit: ratio
+    format: "0.0%"
+    higher_is_better: true
+    min_sample_size: 30
+    caveat_vi: *has_app_correlation_caveat
+    reference:
+      among_applied: 0.5646           # 1442 / 2554
+
+  avg_income:
+    label_vi: "Thu nhập trung bình"
+    dataset: customer
+    sql: "AVG(income)"
+    unit: vnd
+    format: "#,##0"
+    reference:
+      all_customers: 10830621
+
+  avg_age:
+    label_vi: "Tuổi trung bình"
+    dataset: customer
+    sql: "AVG(age)"
+    unit: years
+    format: "0.0"
+    reference:
+      all_customers: 36.2
+
+  segment_size_share:
+    label_vi: "Tỷ trọng phân khúc"
+    dataset: segment
+    sql: "COUNT(*)::numeric / SUM(COUNT(*)) OVER ()"
+    unit: ratio
+    min_sample_size: 30
+    format: "0.0%"
+    allowed_dimensions: [segment]
+    reference:
+      by_segment: {rejected_only: 0.353, dormant: 0.276, never_activated: 0.120,
+                   champion: 0.097, app_gap: 0.055, high_potential: 0.050,
+                   high_risk: 0.033, repeat_standard: 0.016}
+
+  dormant_customers:
+    label_vi: "Khách đang ngủ đông"
+    description_vi: "Da giai ngan it nhat mot khoan nhung chua vay lai."
+    dataset: segment
+    sql: "COUNT(*) FILTER (WHERE segment = 'dormant')"
+    unit: count
+    format: "#,##0"
+    reference:
+      total: 802
+
+  never_applied_customers:
+    label_vi: "Khách chưa kích hoạt"
+    description_vi: "Co trong dim_customer nhung chua nop ho so nao (DQ-07)."
+    dataset: segment
+    sql: "COUNT(*) FILTER (WHERE segment = 'never_activated')"
+    unit: count
+    format: "#,##0"
+    reference:
+      total: 347
+
+  # --- Chi so TINH BANG PYTHON, khong phai bang SQL ---
+  clv_predicted:
+    label_vi: "CLV dự báo"
+    computed_by: "app.analytics.clv.estimate_clv"
+    description_vi: >
+      clv_to_date + p_repeat(ho so hanh vi) * avg_profit_per_repeat_loan * horizon_factor.
+      LUON tra ve mot KHOANG, khong bao gio tra ve mot diem.
+      p_repeat lay tu bang tra theo (income_band x has_app), KHONG lay tu chinh phan
+      khuc gia tri - lay tu phan khuc gia tri se bi vong lap logic vi phan khuc do
+      duoc dinh nghia bang trang thai vay lai.
+    unit: vnd
+    format: "#,##0"
+    higher_is_better: true
+    min_sample_size: 30
+    requires_confidence_interval: true
+    requires_assumptions: true
+    reference:
+      avg_profit_per_repeat_loan: 807610        # n = 486
+      by_segment_point: {champion: 1716873, high_potential: 596459, app_gap: 513456,
+                         dormant: 462870, repeat_standard: 338480, high_risk: -778322}
+      by_segment_lower: {champion: 1673474, high_potential: 553060, app_gap: 472540,
+                         dormant: 431988, repeat_standard: 295081, high_risk: -809205}
+      by_segment_upper: {champion: 1763233, high_potential: 642819, app_gap: 561802,
+                         dormant: 499124, repeat_standard: 384840, high_risk: -742069}
+      not_applicable: [rejected_only, never_activated]   # chua giai ngan khoan nao

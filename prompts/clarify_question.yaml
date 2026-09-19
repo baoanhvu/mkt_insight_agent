@@ -1,0 +1,82 @@
+# =============================================================================
+# clarify_question - Hoi lai khi cau hoi mo ho
+# =============================================================================
+# Goi khi: route_confidence < 0.6, thieu entity bat buoc, hoac self-consistency
+# duoi nguong. Muc tieu la hoi MOT cau duy nhat, co dap an de chon, khong hoi lung tung.
+#
+# Day la prompt NGAN NHAT trong he thong. Neu no dai, no dang lam sai viec.
+# =============================================================================
+
+id: clarify_question
+version: "1.0.0"
+description_vi: "Hỏi lại người dùng khi câu hỏi mơ hồ"
+model_role: router
+engine: jinja2
+renders_few_shots: false
+
+params:
+  temperature: 0.1
+  max_tokens: 200
+
+system: |
+  Bạn giúp làm rõ câu hỏi về dữ liệu marketing. Bạn hỏi ngắn, đưa sẵn lựa chọn.
+
+instructions: |
+  Người dùng hỏi: "{{ question }}"
+  Lý do cần làm rõ: {{ reason }}
+  {% if options %}
+  Các lựa chọn khả dụng: {{ options | join(', ') }}
+  {% endif %}
+
+  Viết MỘT câu hỏi làm rõ bằng tiếng Việt, tối đa 2 câu, kèm 2–4 lựa chọn dạng gạch
+  đầu dòng để người dùng bấm chọn.
+
+  QUY TẮC:
+  - Không đoán ý người dùng rồi trả lời luôn.
+  - Chỉ đưa lựa chọn CÓ TRONG danh sách khả dụng. Không bịa.
+  - Không xin lỗi, không rào đón. Đi thẳng vào câu hỏi.
+
+few_shots:
+
+  - question: "Chiến dịch đó thế nào?"
+    reason: "khong trich duoc campaign_id"
+    options: ["CMP-FB-001 (Facebook)", "CMP-GG-001 (Google)", "CMP-TT-001 (TikTok)",
+              "CMP-ZL-RL1 (Zalo)", "CMP-PTN-MOMO (Momo)", "CMP-PTN-BRK01 (Broker)"]
+    output: |
+      Bạn muốn xem chiến dịch nào?
+
+      - Facebook — Vay Tiêu Dùng Digital Q3
+      - Google — Vay Tín Chấp Search
+      - TikTok — Vay Mua Sắm Awareness
+      - Zalo — Vay Lại Remarketing
+
+      Hoặc gõ "tất cả" để xem tổng quan cả sáu chiến dịch.
+
+  - question: "Nhóm nào tốt hơn?"
+    reason: "khong ro dang so sanh theo chieu nao"
+    options: ["income_band", "age_band", "has_app", "segment"]
+    output: |
+      Bạn muốn so sánh theo chiều nào?
+
+      - Nhóm thu nhập
+      - Nhóm tuổi
+      - Có cài app hay không
+      - Phân khúc giá trị
+
+  - question: "Cho tôi xem dữ liệu tăng trưởng"
+    reason: "self-consistency thap: co the hieu la tang truong lead, ho so, hoac loi nhuan"
+    options: ["leads", "applications", "net_profit"]
+    output: |
+      Tăng trưởng của chỉ số nào?
+
+      - Số lead theo ngày
+      - Số hồ sơ theo ngày
+      - Lợi nhuận ròng theo ngày
+
+      Lưu ý dữ liệu giao dịch chỉ có 31 ngày trong tháng 8/2026, nên chỉ xem được
+      xu hướng trong tháng.
+
+output_contract:
+  format: markdown
+  max_words: 80
+  must_contain_question_mark: true

@@ -1,0 +1,81 @@
+# =============================================================================
+# funnel_analysis - Phan tich pheu chuyen doi  (D1)
+# =============================================================================
+# Trigger vi du: "pheu roi o dau", "tai sao it ho so duoc duyet"
+# =============================================================================
+
+id: funnel_analysis
+label_vi: "Phân tích phễu chuyển đổi"
+intent: FUNNEL_ANALYSIS
+requires_entities: []
+prompt: narrate_funnel
+comparison_policy: significance_required
+default_date_range: {from: "2026-08-01", to: "2026-08-31"}
+
+charts:
+  - {id: funnel_overall, fact: F1, type: funnel,
+     steps: [leads, applications, disbursed_loans], title_vi: "Phễu tổng"}
+  - {id: funnel_by_campaign, fact: F2, type: grouped_bar,
+     x: campaign_name, series: [lead_to_application_rate, approval_rate],
+     title_vi: "Tỷ lệ chuyển đổi từng bước theo chiến dịch"}
+  - {id: reject_tree, fact: F4, type: treemap,
+     levels: [reason_level_1, reason_level_2], value: rejected_loans,
+     title_vi: "Cây lý do từ chối"}
+
+sections:
+
+  - id: overall
+    label_vi: "Phễu tổng"
+    fact_id: F1
+    metrics: [leads, applications, disbursed_loans, rejected_loans,
+              lead_to_application_rate, approval_rate, lead_to_disbursed_rate]
+    group_by: []
+    max_words: 80
+
+  - id: by_campaign
+    label_vi: "Theo chiến dịch"
+    fact_id: F2
+    metrics: [leads, applications, disbursed_loans,
+              lead_to_application_rate, approval_rate]
+    group_by: [campaign_id, campaign_name]
+    order_by: lead_to_disbursed_rate
+    order_desc: true
+
+  - id: bottleneck
+    label_vi: "Nút thắt"
+    fact_id: F3
+    metrics: [lead_to_application_rate, approval_rate]
+    group_by: [campaign_id, campaign_name]
+    # Code xac dinh but that, khong phai LLM: so sanh moi buoc voi trung vi nhom
+    derived:
+      - {id: D1, expr: "median(F3.lead_to_application_rate)", label_vi: "Trung vị lead→hồ sơ"}
+      - {id: D2, expr: "median(F3.approval_rate)", label_vi: "Trung vị tỷ lệ duyệt"}
+      - {id: D3, expr: "argmin(F3.lead_to_application_rate)", label_vi: "Yếu nhất ở bước lead→hồ sơ"}
+      - {id: D4, expr: "argmin(F3.approval_rate)", label_vi: "Yếu nhất ở bước duyệt"}
+
+  - id: reject_reasons
+    label_vi: "Lý do từ chối"
+    fact_id: F4
+    metrics: [rejected_loans]
+    group_by: [reason_level_1, reason_level_2]
+    filters: [{dimension: is_rejected, op: eq, value: true}]
+    order_by: rejected_loans
+    order_desc: true
+    limit: 10
+
+  - id: risk_signals
+    label_vi: "Tín hiệu rủi ro trong hồ sơ trượt"
+    fact_id: F5
+    metrics: [applications, rejection_rate]
+    group_by: [geo_location_match]
+
+  - id: recommendations
+    label_vi: "Đề xuất"
+    source: actions
+    max_items: 3
+
+required_caveats:
+  - metric: lead_to_application_rate
+  - text_vi: >
+      Không thể quy một hồ sơ về đúng một lead: bảng hồ sơ vay không có lead_id.
+      Mọi tỷ lệ trong phễu là tỷ lệ tổng hợp ở mức chiến dịch.

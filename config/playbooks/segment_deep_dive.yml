@@ -1,0 +1,79 @@
+# =============================================================================
+# segment_deep_dive - Boc tach MOT phan khuc cu the  (D2)
+# =============================================================================
+# Trigger vi du: "ke ve nhom thu nhap 12-20 trieu", "nhom champion trong nhu the nao"
+# =============================================================================
+
+id: segment_deep_dive
+label_vi: "Bóc tách một phân khúc"
+intent: SEGMENT_DEEP_DIVE
+requires_entities: [segment_or_dimension_value]
+prompt: narrate_persona
+comparison_policy: significance_required
+dataset_default: segment
+
+on_missing_entity:
+  action: clarify
+  prompt: clarify_question
+  message_vi: "Bạn muốn xem phân khúc nào? {segment_list}"
+
+charts:
+  - {id: profile_radar, fact: F2, type: grouped_bar,
+     x: dimension, series: [segment_value, overall_value],
+     title_vi: "Chân dung so với toàn tập"}
+
+sections:
+
+  - id: size_and_value
+    label_vi: "Quy mô và giá trị"
+    fact_id: F1
+    metrics: [customers, segment_size_share, avg_profit_per_customer,
+              median_profit_per_customer, negative_profit_share,
+              repeat_customer_rate, clv_predicted]
+    group_by: [segment]
+    filters: [{dimension: segment, op: eq, value_from_entity: segment}]
+    require_confidence_interval: true
+    skew_guard: true
+    max_words: 100
+
+  - id: demographics
+    label_vi: "Đặc điểm nhân khẩu"
+    fact_id: F2
+    metrics: [customers, avg_income, avg_age, app_adoption_rate]
+    group_by: [income_band]
+    filters: [{dimension: segment, op: eq, value_from_entity: segment}]
+
+  - id: by_age
+    label_vi: "Phân bố tuổi"
+    fact_id: F3
+    metrics: [customers]
+    group_by: [age_band]
+    filters: [{dimension: segment, op: eq, value_from_entity: segment}]
+
+  - id: by_occupation
+    label_vi: "Phân bố nghề nghiệp"
+    fact_id: F4
+    metrics: [customers]
+    group_by: [occupation]
+    filters: [{dimension: segment, op: eq, value_from_entity: segment}]
+    force_caveat: true
+
+  # So sanh phan khuc voi phan con lai -> code chay kiem dinh, LLM khong tu suy
+  - id: vs_overall
+    label_vi: "So với toàn tập"
+    fact_id: F5
+    metrics: [repeat_customer_rate, avg_profit_per_customer, app_adoption_rate, avg_income]
+    group_by: []
+    compare_with:
+      mode: rest_of_population
+      significance_test: true
+
+  - id: recommended_action
+    label_vi: "Hành động phù hợp"
+    source: actions
+    scoped_to_entity: segment
+    max_items: 2
+
+required_caveats:
+  - dimension: occupation
+  - dimension: has_app

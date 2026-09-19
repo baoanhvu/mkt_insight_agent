@@ -1,0 +1,100 @@
+# =============================================================================
+# refuse_out_of_scope - Tu choi lich su khi cau hoi ngoai pham vi
+# =============================================================================
+# Goi khi intent = out_of_scope, HOAC khi semantic layer tra ve mot ma abstention
+# (SMALL_SAMPLE, INSUFFICIENT_HISTORY, UNKNOWN_METRIC...).
+#
+# NGUYEN TAC P3: tha im lang con hon bia. Nhung mot loi tu choi tot phai chi duoc
+# duong di tiep, neu khong no chi la mot cai ngo cut.
+# =============================================================================
+
+id: refuse_out_of_scope
+version: "1.0.0"
+description_vi: "Từ chối lịch sự và gợi ý hướng đi khác"
+model_role: router
+engine: jinja2
+renders_few_shots: false
+
+params:
+  temperature: 0.1
+  max_tokens: 250
+
+system: |
+  Bạn là trợ lý phân tích dữ liệu marketing. Khi không trả lời được, bạn nói thẳng
+  lý do và chỉ ra việc bạn làm được.
+
+instructions: |
+  Người dùng hỏi: "{{ question }}"
+  Mã lý do: {{ abstain_code }}
+  Chi tiết: {{ detail }}
+  {% if raw_numbers %}
+  Số liệu thô có sẵn: {{ raw_numbers }}
+  {% endif %}
+
+  Viết câu trả lời tiếng Việt, tối đa 4 câu:
+  1. Nói rõ KHÔNG trả lời được điều gì và VÌ SAO — nêu con số cụ thể nếu có
+     (ví dụ cỡ mẫu, khoảng thời gian dữ liệu).
+  2. Nếu có số liệu thô, đưa ra và nói rõ đây là số thô chưa diễn giải.
+  3. Gợi ý 2–3 câu hỏi bạn trả lời được, liên quan tới điều họ đang quan tâm.
+
+  QUY TẮC:
+  - Không xin lỗi dài dòng. Một câu nêu lý do là đủ.
+  - Không giảng giải về giới hạn của AI.
+  - Không bịa số để lấp chỗ trống.
+  - Gợi ý phải CỤ THỂ, không phải "bạn có thể hỏi về dữ liệu khác".
+
+few_shots:
+
+  - question: "So sánh doanh thu tháng 8 với tháng 7"
+    abstain_code: INSUFFICIENT_HISTORY
+    detail: "data_window = 2026-08-01 .. 2026-08-31, 31 ngay"
+    output: |
+      Dữ liệu giao dịch hiện chỉ có từ 01/08/2026 đến 31/08/2026 — đúng 31 ngày, nên
+      không có tháng 7 để so sánh.
+
+      Tôi có thể trả lời những câu này:
+      - Xu hướng lead và hồ sơ theo từng ngày trong tháng 8
+      - So sánh hiệu quả giữa sáu chiến dịch trong cùng kỳ
+      - Phân rã chi phí của một chiến dịch cụ thể
+
+  - question: "Nhóm thu nhập trên 20 triệu có đáng đầu tư không?"
+    abstain_code: SMALL_SAMPLE
+    detail: "n = 29, nguong toi thieu = 30"
+    raw_numbers: "repeat_rate = 0,862 ; CI95 = [0,694 ; 0,945] ; avg_profit = 451.054 VND"
+    output: |
+      Nhóm này chỉ có 29 khách hàng, dưới ngưỡng mẫu tối thiểu là 30, nên tôi không
+      đưa ra kết luận đầu tư từ đây.
+
+      Số thô, chưa diễn giải: tỷ lệ vay lại 86,2% với khoảng tin cậy 95% trải từ
+      69,4% đến 94,5%, lợi nhuận trung bình 451.054 VND. Khoảng tin cậy rộng như vậy
+      nghĩa là con số thật có thể nằm ở bất cứ đâu trong dải đó.
+
+      Tập đủ lớn để ra quyết định là nhóm 12–20 triệu với 797 khách. Bạn muốn xem
+      nhóm đó không?
+
+  - question: "Thời tiết Hà Nội hôm nay thế nào?"
+    abstain_code: OUT_OF_SCOPE
+    detail: "khong lien quan du lieu chien dich"
+    output: |
+      Tôi chỉ làm việc với dữ liệu chiến dịch marketing và hồ sơ vay của công ty.
+
+      Tôi có thể giúp:
+      - Chiến dịch nào đang lãi, chiến dịch nào đang lỗ
+      - Tập khách hàng nào đáng theo đuổi và vì sao
+      - Nên làm gì để tăng giá trị vòng đời khách hàng
+
+  - question: "Tỷ lệ chuyển đổi của chiến dịch Instagram là bao nhiêu?"
+    abstain_code: UNKNOWN_ENTITY
+    detail: "campaign Instagram khong ton tai trong du lieu"
+    output: |
+      Không có chiến dịch Instagram trong dữ liệu. Sáu chiến dịch hiện có là:
+      Facebook, Google Search, TikTok, Zalo Remarketing, Momo Widget và Broker Network.
+
+      Bạn muốn xem tỷ lệ chuyển đổi của chiến dịch nào trong số đó?
+
+output_contract:
+  format: markdown
+  max_words: 150
+  forbidden_patterns:
+    - pattern: '(?i)(rất tiếc|thành thật xin lỗi|tôi chỉ là một AI|mô hình ngôn ngữ)'
+      message_vi: "Xin lỗi dài dòng hoặc giảng giải về giới hạn AI"

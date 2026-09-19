@@ -1,0 +1,83 @@
+# =============================================================================
+# risk_fraud - Phan tich ho so bi tu choi va tin hieu rui ro
+# =============================================================================
+# Trigger vi du: "vi sao ho so bi tu choi nhieu", "co dau hieu gian lan khong"
+# =============================================================================
+
+id: risk_fraud
+label_vi: "Rủi ro và hồ sơ bị từ chối"
+intent: RISK_FRAUD
+requires_entities: []
+prompt: narrate_funnel
+comparison_policy: significance_required
+default_date_range: {from: "2026-08-01", to: "2026-08-31"}
+
+charts:
+  - {id: reject_tree, fact: F1, type: treemap,
+     levels: [reason_level_1, reason_level_2], value: rejected_loans,
+     title_vi: "Cây lý do từ chối"}
+  - {id: reject_by_campaign, fact: F2, type: grouped_bar,
+     x: campaign_name, series: [rejection_rate], title_vi: "Tỷ lệ từ chối theo chiến dịch"}
+
+sections:
+
+  - id: overview
+    label_vi: "Toàn cảnh"
+    fact_id: F0
+    metrics: [applications, rejected_loans, rejection_rate, fraud_signal_rate]
+    group_by: []
+    max_words: 80
+
+  - id: reasons
+    label_vi: "Lý do từ chối"
+    fact_id: F1
+    metrics: [rejected_loans]
+    group_by: [reason_level_1, reason_level_2]
+    filters: [{dimension: is_rejected, op: eq, value: true}]
+    order_by: rejected_loans
+    order_desc: true
+
+  - id: by_campaign
+    label_vi: "Theo chiến dịch"
+    fact_id: F2
+    metrics: [applications, rejected_loans, rejection_rate]
+    group_by: [campaign_id, campaign_name]
+    order_by: rejection_rate
+    order_desc: true
+    require_confidence_interval: true
+
+  - id: fraud_signals
+    label_vi: "Tín hiệu gian lận"
+    fact_id: F3
+    metrics: [applications, rejection_rate, avg_profit_per_customer]
+    group_by: [geo_location_match]
+    require_confidence_interval: true
+
+  - id: device_signals
+    label_vi: "Theo thiết bị"
+    fact_id: F4
+    metrics: [applications, rejection_rate]
+    group_by: [device_os]
+    require_confidence_interval: true
+    # Windows co n=130 -> tren nguong 30 nhung duoi 100 -> canh bao co mau
+    expected_note_vi: >
+      Nhóm Windows chỉ có 130 hồ sơ, đủ để tính nhưng khoảng tin cậy còn rộng.
+
+  - id: form_behaviour
+    label_vi: "Hành vi điền form"
+    fact_id: F5
+    metrics: [applications, avg_form_filling_time, rejection_rate]
+    group_by: [geo_location_match]
+    note_vi: >
+      9 gia tri form_filling_time khong duong (thap nhat -53 giay) da duoc chuyen
+      thanh NULL trong mart theo DQ-02, nen chung khong tinh vao trung binh.
+
+  - id: recommendations
+    label_vi: "Đề xuất"
+    source: actions
+    max_items: 2
+
+required_caveats:
+  - text_vi: >
+      Tỷ lệ từ chối cao không đồng nghĩa với chiến dịch kém: cần xem cùng với
+      chi phí thu hút và lợi nhuận trên mỗi khoản giải ngân.

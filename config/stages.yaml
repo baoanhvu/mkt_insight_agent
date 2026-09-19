@@ -1,0 +1,118 @@
+# =============================================================================
+# stages.yaml - Thong bao tien trinh cho streaming
+# =============================================================================
+# Xem docs/15-streaming.md muc 15.2.
+# Sua file nay doi NOI DUNG THONG BAO ma khong can build lai. Hot-reload < 5s.
+# `weight` dung de tinh thanh tien trinh cong don - dat sao cho no khong giat.
+# =============================================================================
+
+version: "1.0.0"
+
+stages:
+  intake:
+    label_vi: "Đang đọc câu hỏi"
+    weight: 1
+  routing:
+    label_vi: "Đang xác định loại phân tích"
+    weight: 1
+  planning:
+    label_vi: "Đang chọn chỉ số cần tính"
+    weight: 1
+  computing:
+    label_vi: "Đang truy vấn dữ liệu"
+    template_vi: "Đang truy vấn {n_metrics} chỉ số"
+    weight: 4
+  analyzing:
+    label_vi: "Đang kiểm định thống kê"
+    weight: 2
+  narrating:
+    label_vi: "Đang viết phân tích"
+    weight: 6
+  verifying:
+    label_vi: "Đang đối chiếu số liệu với nguồn"
+    weight: 2
+  rendering:
+    label_vi: "Đang hoàn thiện"
+    weight: 1
+  judging:
+    label_vi: "Đang kiểm tra lại bằng mô hình"
+    weight: 0          # bat dong bo, ngoai duong gang
+
+# -----------------------------------------------------------------------------
+# Ghi de theo playbook
+# -----------------------------------------------------------------------------
+# Day la cho tra loi yeu cau "neu dang tao dashboard thi phan hoi dang tao dashboard".
+# -----------------------------------------------------------------------------
+playbook_overrides:
+
+  campaign_overview:
+    computing: "Đang tạo dashboard hiệu quả chiến dịch"
+    narrating: "Đang tóm tắt kết quả từng chiến dịch"
+
+  campaign_diagnosis:
+    computing: "Đang phân rã chi phí và phễu của chiến dịch"
+    analyzing: "Đang so sánh với các chiến dịch cùng sản phẩm"
+    narrating: "Đang viết chẩn đoán"
+
+  funnel_analysis:
+    computing: "Đang dựng phễu lead → hồ sơ → giải ngân"
+    narrating: "Đang chỉ ra nút thắt"
+
+  customer_persona:
+    computing: "Đang dựng chân dung các tập khách hàng"
+    analyzing: "Đang tính CLV và khoảng tin cậy cho từng phân khúc"
+    narrating: "Đang mô tả chân dung"
+
+  segment_deep_dive:
+    computing: "Đang bóc tách phân khúc"
+    analyzing: "Đang kiểm định khác biệt giữa các nhóm"
+
+  clv_actions:
+    computing: "Đang tìm cơ hội tăng giá trị vòng đời"
+    analyzing: "Đang ước lượng tác động của từng hành động"
+    narrating: "Đang soạn khuyến nghị"
+
+  risk_fraud:
+    computing: "Đang phân tích hồ sơ bị từ chối"
+    narrating: "Đang tổng hợp tín hiệu rủi ro"
+
+  data_question:
+    computing: "Đang đếm dữ liệu"
+    narrating: "Đang trả lời"
+
+  freeform:
+    planning:  "Đang dựng truy vấn cho câu hỏi này"
+    computing: "Đang chạy truy vấn có kiểm soát"
+
+  export:
+    computing: "Đang lọc danh sách khách hàng"
+    rendering: "Đang xuất file CSV"
+
+# -----------------------------------------------------------------------------
+# Thong bao dac biet - khong thuoc chuoi giai doan
+# -----------------------------------------------------------------------------
+special:
+  rate_limited:
+    label_vi: "Đang chờ lượt gọi mô hình, khoảng {wait_s} giây"
+    show_countdown: true
+  repairing:
+    label_vi: "Truy vấn chưa đúng, đang sửa lại (lần {attempt}/3)"
+  regenerating:
+    label_vi: "Kết quả chưa đạt kiểm chứng, đang viết lại"
+    clear_previous_blocks: true
+  cache_hit:
+    label_vi: "Dùng lại kết quả đã tính"
+  degraded_llm:
+    label_vi: "Mô hình tạm không phản hồi — hiển thị số liệu dạng rút gọn"
+    level: warning
+  cancelled:
+    label_vi: "Đã dừng theo yêu cầu"
+
+# -----------------------------------------------------------------------------
+# Cau hinh SSE
+# -----------------------------------------------------------------------------
+sse:
+  keepalive_interval_s: 15
+  max_block_chars: 600
+  flush_markers: ["\n\n", "\n### ", "\n## ", "\n- ", "\n* ", "\n1. "]
+  reconnect_buffer_ttl_s: 300

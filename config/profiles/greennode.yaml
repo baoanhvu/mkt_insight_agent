@@ -1,0 +1,49 @@
+# =============================================================================
+# profiles/greennode.yaml - AgentBase Runtime (production PoC)
+# =============================================================================
+# APP_PROFILE=greennode  -> dat trong environmentVariables luc tao/cap nhat Runtime.
+#
+# CANH BAO VE MODEL: so tay BTC goi y "Qwen 3.5 27B" nhung ten do KHONG co trong
+# catalog MaaS chinh thuc. Chay lenh sau de lay ma model that truoc khi deploy:
+#   ./.claude/skills/agentbase/scripts/aip.sh models list --status ENABLED
+# Xem docs/10-config-secrets.md muc 10.4.
+# =============================================================================
+
+llm:
+  base_url_from_env: "LLM_BASE_URL"
+  base_url_default: "https://maas-llm-aiplatform-hcm.api.vngcloud.vn/v1"
+  model_from_env: "LLM_MODEL"
+  judge_model_from_env: "LLM_JUDGE_MODEL"
+  api_key_from_env: "LLM_API_KEY"             # key phai o trang thai ACTIVE
+  temperature: 0.2
+  timeout_s: 60
+  rate_limit:
+    requests_per_minute: 8        # tran tai khoan MaaS la 10 RPM, dung chung moi model
+    burst: 2
+
+database:
+  url_from_env: "MKT_DATABASE__URL"
+  url_trace_from_env: "MKT_DATABASE__URL_TRACE"
+  pool_size: 3                    # flavor 1x1-general: tiet kiem ket noi
+  max_overflow: 2
+
+agent:
+  enable_freeform_sql: true
+  self_consistency_k: 1           # TAT self-consistency de tiet kiem quota
+  max_llm_calls_per_question: 2
+  answer_cache_ttl_s: 1800        # cache lau hon o prod
+
+verify:
+  judge_async: true               # BAT BUOC: khong duoc chan duong gang bang judge
+
+ui:
+  vendor_assets_local: true       # tai san dong goi trong image, khong phu thuoc CDN
+
+logging:
+  level: "INFO"
+  format: "json"
+  sql_echo: false
+
+telemetry:
+  enabled: true
+  sample_rate: 1.0

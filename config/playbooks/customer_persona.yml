@@ -1,0 +1,113 @@
+# =============================================================================
+# customer_persona - Chan dung cac tap khach hang tiem nang  (D2)
+# =============================================================================
+# Trigger vi du: "tap khach nao tiem nang", "chan dung khach hang", "phan khuc"
+# Day cung la playbook chay cho tab Chan dung KH tren UI.
+#
+# NGUYEN TAC: phan khuc tinh bang LUAT trong config/analytics.yaml.
+# LLM chi dat ten hien thi va ke chuyen. Xem docs/adr/ADR-004-segmentation.md.
+# =============================================================================
+
+id: customer_persona
+label_vi: "Chân dung khách hàng"
+intent: CUSTOMER_PERSONA
+requires_entities: []
+prompt: narrate_persona
+comparison_policy: significance_required
+dataset_default: segment
+
+charts:
+  - {id: segment_scatter, fact: F1, type: scatter,
+     x: n_customers, y: clv_predicted, size: n_customers, label: segment,
+     title_vi: "Quy mô × giá trị từng phân khúc"}
+  - {id: repeat_by_income, fact: F3, type: bar_with_error,
+     x: income_band, y: repeat_customer_rate, error: ci95,
+     title_vi: "Tỷ lệ vay lại theo nhóm thu nhập"}
+  - {id: repeat_by_app, fact: F4, type: bar_with_error,
+     x: has_app, y: repeat_customer_rate, error: ci95,
+     title_vi: "Tỷ lệ vay lại theo việc cài app"}
+
+sections:
+
+  - id: overview
+    label_vi: "Toàn cảnh"
+    fact_id: F0
+    dataset: customer
+    metrics: [customers, repeat_customer_rate, avg_profit_per_customer,
+              median_profit_per_customer, negative_profit_share, clv_to_date]
+    group_by: []
+    filters: [{dimension: is_never_applied, op: eq, value: false}]
+    max_words: 100
+    # Bat buoc: khong duoc bao cao trung binh ma khong bao cao trung vi
+    skew_guard: true
+
+  - id: segments
+    label_vi: "Các phân khúc"
+    fact_id: F1
+    dataset: segment
+    metrics: [customers, segment_size_share, avg_profit_per_customer,
+              median_profit_per_customer, repeat_customer_rate, clv_predicted,
+              avg_income, avg_age, app_adoption_rate]
+    group_by: [segment]
+    order_by: clv_predicted
+    order_desc: true
+    require_confidence_interval: true
+
+  - id: by_income
+    label_vi: "Theo nhóm thu nhập"
+    fact_id: F3
+    dataset: customer
+    metrics: [customers, repeat_customer_rate, avg_profit_per_customer,
+              median_profit_per_customer]
+    group_by: [income_band]
+    filters: [{dimension: is_never_applied, op: eq, value: false}]
+    require_confidence_interval: true
+
+  - id: by_app
+    label_vi: "Theo việc cài app"
+    fact_id: F4
+    dataset: customer
+    metrics: [customers, repeat_customer_rate, avg_profit_per_customer]
+    group_by: [has_app]
+    filters: [{dimension: is_never_applied, op: eq, value: false}]
+    require_confidence_interval: true
+
+  - id: by_age
+    label_vi: "Theo nhóm tuổi"
+    fact_id: F5
+    dataset: customer
+    metrics: [customers, repeat_customer_rate, avg_profit_per_customer]
+    group_by: [age_band]
+    filters: [{dimension: is_never_applied, op: eq, value: false}]
+    require_confidence_interval: true
+
+  # Section nay TON TAI de agent noi ro nghe nghiep KHONG phan hoa.
+  # Neu bo di, LLM se tu suy ra tu bang va co the phat bieu sai.
+  - id: by_occupation
+    label_vi: "Theo nghề nghiệp"
+    fact_id: F6
+    dataset: customer
+    metrics: [customers, repeat_customer_rate, avg_profit_per_customer]
+    group_by: [occupation]
+    filters: [{dimension: is_never_applied, op: eq, value: false}]
+    require_confidence_interval: true
+    expected_conclusion_vi: >
+      Không có khác biệt có ý nghĩa thống kê giữa các nhóm nghề nghiệp.
+    force_caveat: true
+
+  - id: priority
+    label_vi: "Nên ưu tiên tập nào"
+    source: derived
+    derived:
+      - {id: D1, expr: "argmax(F1.clv_predicted where F1.n >= 100)",
+         label_vi: "Phân khúc giá trị cao nhất có đủ quy mô"}
+      - {id: D2, expr: "sum(F1.n_customers where F1.segment in ('high_potential','app_gap'))",
+         label_vi: "Tổng quy mô tập có thể tác động"}
+    max_words: 100
+
+required_caveats:
+  - dimension: occupation
+  - dimension: has_app
+  - text_vi: >
+      Phân bố lợi nhuận lệch mạnh: 53,8% khách có lợi nhuận âm và top 10% khách
+      đóng góp 81,9% tổng lợi nhuận. Trung bình một mình không mô tả được cơ cấu này.

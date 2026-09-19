@@ -1,0 +1,41 @@
+# =============================================================================
+# profiles/local.yaml - May dev
+# =============================================================================
+# APP_PROFILE=local  (mac dinh khi khong dat)
+#
+# LUU Y: database TRO TOI CUNG MOT vDB RDS tren GreenNode nhu profile greennode.
+# Yeu cau cua nguoi dat bai la local va prod dung CHUNG mot DB.
+# Chi profile `test` moi tro vao Postgres cuc bo.
+# =============================================================================
+
+llm:
+  # Ollama chay tren may dev. Doi base_url neu dung nha cung cap khac.
+  base_url: "http://localhost:11434/v1"
+  model: "qwen2.5:14b-instruct"
+  judge_model: "qwen2.5:7b-instruct"
+  api_key_from_secret: "llm.api_key_local"    # Ollama khong can key that, dat "ollama"
+  temperature: 0.2
+  rate_limit:
+    requests_per_minute: 60       # local khong bi tran MaaS
+    burst: 10
+
+database:
+  url_from_secret: "database.url"             # vDB RDS - DUNG CHUNG voi prod
+  url_admin_from_secret: "database.url_admin"
+  url_trace_from_secret: "database.url_trace"
+  pool_size: 5
+
+agent:
+  enable_freeform_sql: true
+  self_consistency_k: 3
+
+verify:
+  judge_async: false              # local chay dong bo cho de debug
+
+ui:
+  vendor_assets_local: false
+
+logging:
+  level: "DEBUG"
+  format: "console"
+  sql_echo: true

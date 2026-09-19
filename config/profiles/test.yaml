@@ -1,0 +1,43 @@
+# =============================================================================
+# profiles/test.yaml - CI va unit test
+# =============================================================================
+# APP_PROFILE=test
+#
+# Day la profile DUY NHAT tro vao Postgres cuc bo (docker-compose.dev.yml).
+# Provider "mock" doc cau tra loi mau tu tests/fixtures/mock_responses/ nen golden
+# set chay duoc trong CI ma khong ton quota MaaS va khong phu thuoc mang.
+# =============================================================================
+
+llm:
+  provider: "mock"
+  model: "mock-narrator"
+  judge_model: "mock-judge"
+  mock_response_dir: "tests/fixtures/mock_responses"
+  temperature: 0.0
+  rate_limit:
+    requests_per_minute: 10000
+    burst: 1000
+
+database:
+  url: "postgresql+psycopg://mkt_owner:devonly@localhost:55432/mkt_insight"
+  url_admin: "postgresql+psycopg://mkt_owner:devonly@localhost:55432/mkt_insight"
+  url_trace: "postgresql+psycopg://mkt_owner:devonly@localhost:55432/mkt_insight"
+  pool_size: 2
+  statement_timeout_ms: 30000     # noi hon: CI chay tren may cham
+
+agent:
+  enable_freeform_sql: true
+  self_consistency_k: 3
+  answer_cache_ttl_s: 0           # TAT cache: test phai tat dinh
+
+verify:
+  judge_async: false              # test can ket qua dong bo
+
+telemetry:
+  enabled: true
+  sample_rate: 1.0
+
+logging:
+  level: "WARNING"
+  format: "console"
+  sql_echo: false

@@ -1,0 +1,85 @@
+# =============================================================================
+# campaign_diagnosis - Chan doan MOT chien dich cu the  (D1)
+# =============================================================================
+# Trigger vi du: "vi sao Broker Network lo", "chien dich TikTok co van de gi"
+# =============================================================================
+
+id: campaign_diagnosis
+label_vi: "Chẩn đoán một chiến dịch"
+intent: CAMPAIGN_DIAGNOSIS
+requires_entities: [campaign_id]
+prompt: narrate_campaign_diagnosis
+comparison_policy: significance_required
+default_date_range: {from: "2026-08-01", to: "2026-08-31"}
+
+# Neu khong trich duoc campaign_id -> hoi lai thay vi doan
+on_missing_entity:
+  action: clarify
+  prompt: clarify_question
+  message_vi: "Bạn muốn xem chiến dịch nào? {campaign_list}"
+
+charts:
+  - {id: cost_waterfall, fact: F3, type: waterfall,
+     title_vi: "Phân rã từ doanh thu xuống lợi nhuận ròng"}
+  - {id: benchmark, fact: F4, type: bar_negative, x: campaign_name, y: romi,
+     highlight_entity: campaign_id, title_vi: "So với các chiến dịch cùng sản phẩm"}
+
+sections:
+
+  - id: verdict
+    label_vi: "Kết luận"
+    fact_id: F1
+    metrics: [romi, net_profit, total_revenue, total_cost, acquisition_spend]
+    group_by: [campaign_id, campaign_name]
+    filters: [{dimension: campaign_id, op: eq, value_from_entity: campaign_id}]
+    max_words: 80
+
+  - id: funnel
+    label_vi: "Phễu"
+    fact_id: F2
+    metrics: [leads, applications, disbursed_loans, rejected_loans,
+              lead_to_application_rate, approval_rate, cost_per_disbursed]
+    group_by: [campaign_id]
+    filters: [{dimension: campaign_id, op: eq, value_from_entity: campaign_id}]
+
+  - id: cost_breakdown
+    label_vi: "Phân rã chi phí"
+    fact_id: F3
+    metrics: [marketing_cost, lead_cost, partner_fee, partner_fee_share, funding_cost,
+              credit_loss, operation_cost, loan_processing_cost, collection_cost, total_cost]
+    group_by: [campaign_id]
+    filters: [{dimension: campaign_id, op: eq, value_from_entity: campaign_id}]
+
+  - id: benchmark
+    label_vi: "So với các chiến dịch cùng sản phẩm"
+    fact_id: F4
+    metrics: [romi, approval_rate, cost_per_disbursed, profit_per_disbursed]
+    group_by: [campaign_id, campaign_name]
+    filters: [{dimension: product_id, op: eq, value_from_entity: product_id}]
+    order_by: romi
+    order_desc: true
+    # So sanh chien dich muc tieu voi trung vi nhom -> code tinh, khong phai LLM
+    derived:
+      - {id: D1, expr: "median(F4.romi)", label_vi: "ROMI trung vị nhóm"}
+      - {id: D2, expr: "F1.romi - D1", label_vi: "Chênh lệch so với trung vị"}
+
+  - id: reject_reasons
+    label_vi: "Lý do bị từ chối"
+    fact_id: F5
+    metrics: [rejected_loans]
+    group_by: [reason_level_1]
+    filters:
+      - {dimension: campaign_id, op: eq, value_from_entity: campaign_id}
+      - {dimension: is_rejected, op: eq, value: true}
+    order_by: rejected_loans
+    order_desc: true
+    skip_if_empty: true
+
+  - id: recommendations
+    label_vi: "Đề xuất"
+    source: actions
+    scoped_to_entity: campaign_id
+    max_items: 3
+
+required_caveats:
+  - metric: lead_to_application_rate

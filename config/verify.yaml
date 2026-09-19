@@ -1,0 +1,252 @@
+# =============================================================================
+# verify.yaml - Nguong va tham so cho hang rao chong hallucination
+# =============================================================================
+# Xem docs/08-anti-hallucination.md.
+#
+# CANH BAO: `t_high` va `t_low` duoi day la CHO DAT TAM, khong phai gia tri da
+# kiem chung. Khong tai lieu nao cong bo mot nguong dung cho moi domain. Phai
+# hieu chinh bang duong cong coverage-risk tren golden set TRUOC KHI bat cong chan.
+# Quy trinh: docs/13-testing-eval.md muc 13.6.
+#
+# KHONG BAO GIO dua cac nguong nay vao prompt. Prompt khong duoc tu noi rao
+# cua chinh no.
+# =============================================================================
+
+version: "1.0.0"
+calibrated: false                 # dat true SAU KHI chay evals/calibrate.py
+
+# -----------------------------------------------------------------------------
+# Cac lop kiem chung
+# -----------------------------------------------------------------------------
+layers:
+  L0_sql_validation:   {enabled: true,  severity: BLOCK, applies_to: [freeform]}
+  L1_explain_dryrun:   {enabled: true,  severity: BLOCK, applies_to: [freeform]}
+  L2_numeric_grounding: {enabled: true,  severity: BLOCK, applies_to: [all]}
+  L3_entity_grounding: {enabled: true,  severity: BLOCK, applies_to: [all]}
+  L4_stats_guard:      {enabled: true,  severity: BLOCK, applies_to: [all]}
+  L5_llm_judge:        {enabled: true,  severity: WARN,  applies_to: [all], async: true}
+  L6_decision_gate:    {enabled: true,  severity: BLOCK, applies_to: [all]}
+
+# -----------------------------------------------------------------------------
+# L2 - Numeric grounding  (lop quan trong nhat)
+# -----------------------------------------------------------------------------
+numeric:
+  # Moi the {{F1.r1.romi}} phai phan giai duoc. Ty le < 1,0 la HARD FAIL.
+  require_grounding_rate: 1.0
+  allow_bare_numbers: false       # true = che do noi (xem docs/14 R3), KHONG phai tat L2
+  max_bare_number_warnings: 2
+
+  policy:
+    default:  {mode: round,   decimals: 2}
+    vnd:      {mode: rel_tol, tol: 0.005}   # sai so 0,5% do lam tron khi hien thi
+    ratio:    {mode: round,   decimals: 4}
+    percent:  {mode: round,   decimals: 1, alias: [ratio_x100]}
+    count:    {mode: exact}
+    days:     {mode: round,   decimals: 1}
+    months:   {mode: round,   decimals: 1}
+    seconds:  {mode: round,   decimals: 0}
+
+  # Don vi tieng Viet -> he so nhan
+  unit_aliases:
+    "tỷ":    1000000000
+    "ty":    1000000000
+    "triệu": 1000000
+    "trieu": 1000000
+    "tr":    1000000
+    "nghìn": 1000
+    "nghin": 1000
+    "k":     1000
+
+  # Chu so duoc phep xuat hien ma khong can khop o du lieu
+  allowlist:
+    years:    {min: 2000, max: 2100, integer_only: true}
+    ordinals: {min: 1, max: 10, integer_only: true}   # "top 5", "3 de xuat"
+    literals: [0, 1, 2, 100]
+    # Ma dinh danh KHONG duoc coi la so
+    id_patterns:
+      - '^CMP-[A-Z0-9-]+$'
+      - '^CUS-\d+$'
+      - '^APP-\d+$'
+      - '^PRD-[A-Z]{2}$'
+      - '^LEAD-\d+$'
+      - '^PTN-[A-Z0-9]+$'
+      - '^v\d+\.\d+\.\d+$'
+
+# -----------------------------------------------------------------------------
+# L3 - Entity grounding
+# -----------------------------------------------------------------------------
+entity:
+  fuzzy_threshold: 0.92
+  cache_ttl_s: 300
+  require_caveats: true           # caveat_vi cua chi so PHAI xuat hien trong cau tra loi
+  caveat_missing_severity: WARN   # WARN + tu dong chen caveat vao cuoi
+
+# -----------------------------------------------------------------------------
+# L4 - Stats guard
+# -----------------------------------------------------------------------------
+stats_guard:
+  alpha: 0.05
+  min_effect_size: 0.2
+  min_sample_size: 30
+  small_sample_warning_below: 100
+  require_confidence_interval_for: [ratio, percent]
+
+  # Cau chua marker so sanh ma cap (left, right) co significant = false -> BLOCK
+  comparative_markers_vi:
+    - "cao hơn"
+    - "thấp hơn"
+    - "tốt hơn"
+    - "kém hơn"
+    - "lớn hơn"
+    - "nhỏ hơn"
+    - "nhiều hơn"
+    - "ít hơn"
+    - "vượt trội"
+    - "dẫn đầu"
+    - "đứng đầu"
+    - "bỏ xa"
+    - "tốt nhất"
+    - "kém nhất"
+    - "cao nhất"
+    - "thấp nhất"
+    - "hiệu quả hơn"
+    - "sinh lời hơn"
+    - "gấp"
+    - "nhất"
+    - "hơn hẳn"
+    - "áp đảo"
+    - "vượt"
+    - "thua"
+
+  # Cau chua marker nhan qua ma EvidenceSet khong co causal_evidence -> WARN + viet lai
+  causal_markers_vi:
+    - "vì"
+    - "do"
+    - "bởi"
+    - "nhờ"
+    - "dẫn đến"
+    - "khiến"
+    - "gây ra"
+    - "làm cho"
+    - "tạo ra"
+    - "kéo theo"
+    - "nguyên nhân là"
+    - "là do"
+    - "làm tăng"
+    - "làm giảm"
+    - "thúc đẩy"
+
+  # Cum tu duoc phep dung khi chi co tuong quan
+  correlation_phrases_vi:
+    - "đi cùng với"
+    - "tương quan với"
+    - "song hành với"
+    - "gắn với"
+    - "cùng chiều với"
+    - "quan sát thấy"
+
+  causal_evidence_sources: [ab_test, randomized_experiment]   # PoC khong co nguon nao
+
+# -----------------------------------------------------------------------------
+# L5 - LLM judge
+# -----------------------------------------------------------------------------
+judge:
+  enabled: true
+  async: true                     # BAT BUOC o prod: tran MaaS 10 RPM
+  prompt_id: judge_grounding
+  temperature: 0.0
+  max_tokens: 200
+  timeout_s: 30
+  sample_rate: 1.0                # ha xuong neu quota cang
+
+  thresholds:
+    contradiction_rate_block: 0.0   # > 0 -> BLOCK
+    neutral_rate_hedge: 0.30        # > nguong -> HEDGE
+    entailment_rate_pass: 0.90
+
+# -----------------------------------------------------------------------------
+# Self-consistency (chi duong freeform SQL)
+# -----------------------------------------------------------------------------
+consistency:
+  enabled_for: [freeform]
+  k: 3                            # dat 1 tren profile greennode de tiet kiem quota
+  temperature: 0.8
+  min_top_cluster_share: 0.60     # duoi nguong -> ABSTAIN
+
+# -----------------------------------------------------------------------------
+# L6 - Trust Score
+# -----------------------------------------------------------------------------
+trust:
+  # KHONG lay trung binh cong cac diem khac ban chat.
+  # Tap hard-fail duoc kiem tra TRUOC; bat ky muc nao dung -> trust = 0,0
+  hard_fail_conditions:
+    - "numeric_grounding.score < 1.0"
+    - "entity_grounding.unknown_entities non-empty"
+    - "stats_guard.has_unsupported_comparison"
+    - "judge.contradiction_rate > 0"
+    - "sql_validation.passed == false"
+
+  weights:
+    schema:      0.15
+    numeric:     0.25
+    entity:      0.10
+    stats:       0.20
+    judge:       0.20
+    consistency: 0.10
+
+  # CHO DAT TAM - phai hieu chinh, xem canh bao dau file
+  t_high: 0.85
+  t_low:  0.60
+
+  bands:
+    PASS:    {min: 0.85, ui_badge: "🟢 Đã kiểm chứng"}
+    HEDGE:   {min: 0.60, ui_badge: "🟡 Cần đối chiếu", show_evidence_expanded: true}
+    ABSTAIN: {min: 0.00, ui_badge: "⚪ Không đủ cơ sở", suppress_narrative: true}
+    BLOCKED: {ui_badge: "🔴 Đã chặn phần diễn giải", suppress_narrative: true}
+
+# -----------------------------------------------------------------------------
+# Sinh lai va tu choi
+# -----------------------------------------------------------------------------
+regeneration:
+  max_attempts: 1                 # sinh lai DUNG mot lan, roi abstain
+  stricter_prompt_suffix: >
+    LAN TRUOC BAN DA VI PHAM: {violations}.
+    Lan nay chi duoc dung the {{fact_id}} co trong EVIDENCE. Tuyet doi khong viet chu so.
+
+abstention:
+  conditions:
+    - id: SMALL_SAMPLE
+      when: "n < min_sample_size"
+      message_vi: "Nhóm này chỉ có {n} bản ghi — quá ít để kết luận. Số liệu thô: {raw}"
+    - id: INSUFFICIENT_HISTORY
+      when: "date_range outside data_window"
+      message_vi: "Dữ liệu giao dịch chỉ có từ 01/08/2026 đến 31/08/2026, không so sánh theo kỳ được."
+    - id: UNKNOWN_METRIC
+      when: "metric not in catalog"
+      message_vi: "Chưa có định nghĩa cho chỉ số này. Các chỉ số gần nhất: {suggestions}"
+    - id: SQL_REPAIR_EXHAUSTED
+      when: "repair_attempts >= 3"
+      message_vi: "Không dựng được truy vấn cho câu hỏi này. Thử diễn đạt lại?"
+    - id: LOW_CONSISTENCY
+      when: "top_cluster_share < 0.60"
+      message_vi: "Có nhiều cách hiểu câu hỏi cho kết quả khác nhau. Ý bạn là {options}?"
+    - id: NUMERIC_UNGROUNDED
+      when: "numeric_grounding fails after regeneration"
+      message_vi: "Không đối chiếu được một số con số với dữ liệu nguồn. Đây là bảng số thô:"
+    - id: OUT_OF_SCOPE
+      when: "intent == OUT_OF_SCOPE"
+      message_vi: "Câu hỏi nằm ngoài phạm vi dữ liệu chiến dịch. Tôi có thể giúp: {examples}"
+
+# -----------------------------------------------------------------------------
+# Muc tieu theo doi suc khoe  (GET /api/admin/quality)
+# -----------------------------------------------------------------------------
+health_targets:
+  numeric_grounding_rate:  {target: 1.000, alert_below: 1.000}
+  entity_grounding_rate:   {target: 1.000, alert_below: 0.995}
+  block_rate:              {target: 0.05,  alert_above: 0.10}
+  abstain_rate:            {target_range: [0.05, 0.15]}
+  hedge_rate:              {alert_above: 0.25}
+  avg_trust_score:         {target: 0.88,  alert_below: 0.80}
+  judge_contradiction_rate: {target: 0.00,  alert_above: 0.01}
+  p95_latency_ms:          {target: 8000,  alert_above: 12000}
+  llm_calls_per_answer:    {target: 2,     alert_above: 3}

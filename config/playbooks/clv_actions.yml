@@ -1,0 +1,94 @@
+# =============================================================================
+# clv_actions - Hanh dong nang cao gia tri vong doi khach hang  (D3)
+# =============================================================================
+# Trigger vi du: "lam gi de tang CLV", "nen lam gi tiep theo", "de xuat hanh dong"
+# Day cung la playbook chay cho tab Hanh dong CLV tren UI.
+#
+# NGUYEN TAC: khuyen nghi KHONG do LLM nghi ra. Chung den tu thu vien hanh dong
+# trong config/analytics.yaml. LLM chi CHON trong so hanh dong DA DU DIEU KIEN va
+# viet loi giai thich. Moi khuyen nghi phai du 5 thanh phan, thieu mot thi khong
+# duoc hien thi.
+# =============================================================================
+
+id: clv_actions
+label_vi: "Hành động nâng cao CLV"
+intent: CLV_ACTIONS
+requires_entities: []
+prompt: narrate_clv_actions
+comparison_policy: significance_required
+
+charts:
+  - {id: opportunity_matrix, fact: F2, type: scatter,
+     x: effort_score, y: impact_vnd, size: segment_size, label: action_label,
+     title_vi: "Ma trận công sức × tác động"}
+  - {id: segment_value, fact: F1, type: bar_with_error,
+     x: segment, y: clv_predicted, error: ci95,
+     title_vi: "CLV dự báo theo phân khúc"}
+
+sections:
+
+  - id: baseline
+    label_vi: "Hiện trạng"
+    fact_id: F0
+    dataset: customer
+    metrics: [customers, repeat_customer_rate, avg_profit_per_customer,
+              median_profit_per_customer, clv_to_date]
+    group_by: []
+    filters: [{dimension: is_never_applied, op: eq, value: false}]
+    max_words: 80
+    skew_guard: true
+
+  - id: opportunity_pools
+    label_vi: "Các tập có thể tác động"
+    fact_id: F1
+    dataset: segment
+    metrics: [customers, segment_size_share, clv_predicted,
+              avg_profit_per_customer, repeat_customer_rate]
+    group_by: [segment]
+    order_by: customers
+    order_desc: true
+    require_confidence_interval: true
+
+  - id: actions
+    label_vi: "Khuyến nghị"
+    fact_id: F2
+    source: actions               # config/analytics.yaml -> actions
+    max_items: 5
+    order_by: priority
+    # Moi hanh dong BAT BUOC co du 5 thanh phan nay
+    required_fields: [target_segment_or_entity, target_metric, impact_estimate,
+                      impact_caveat_vi, effort]
+    # Hanh dong co requires_experiment: true phai duoc danh dau ro tren UI
+    mark_experimental: true
+
+  - id: proof
+    label_vi: "Vì sao tin được con số tác động"
+    fact_id: F3
+    metrics: [romi, approval_rate, lead_to_application_rate, profit_per_disbursed]
+    group_by: [campaign_id, campaign_name]
+    filters: [{dimension: campaign_id, op: eq, value: "CMP-ZL-RL1"}]
+    note_vi: >
+      Chien dich tai vay Zalo la BANG CHUNG QUAN SAT DUOC cho khuyen nghi
+      reloan_campaign_dormant: ty le chuyen doi dung trong cong thuc uoc luong
+      lay truc tiep tu chien dich nay chu khong phai gia dinh.
+
+  - id: next_steps
+    label_vi: "Bước tiếp theo"
+    source: static_template
+    template_vi: |
+      1. Xuất danh sách khách hàng của {top_segment} ({n} khách) → gửi sang CRM.
+      2. Chạy thử quy mô nhỏ trước khi mở rộng, đặc biệt với các hành động
+         được đánh dấu "cần thử nghiệm".
+      3. Đo lại sau 30 ngày bằng chính các chỉ số mục tiêu ở trên.
+    max_words: 80
+
+# Ngan chan viec trinh bay tuong quan nhu nhan qua
+required_caveats:
+  - dimension: has_app
+  - text_vi: >
+      Ước lượng tác động là trần trên. Chúng dựa trên tỷ lệ chuyển đổi quan sát được
+      ở tập khác, hoặc trên tương quan chưa chứng minh nhân quả. Mọi hành động
+      được đánh dấu "cần thử nghiệm" phải chạy A/B test trước khi mở rộng.
+  - text_vi: >
+      Dữ liệu giao dịch chỉ có 31 ngày. Tham số horizon_factor trong mô hình CLV là
+      một giả định cấu hình, không suy ra được từ dữ liệu.
