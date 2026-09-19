@@ -59,7 +59,7 @@ EXPECTED_ROWS = {
 }
 
 
-def build_mart_db(source: str = "excel") -> "duckdb.DuckDBPyConnection":
+def build_mart_db(source: str = "excel") -> duckdb.DuckDBPyConnection:
     """Nap du lieu vao schema raw roi chay CHINH file DDL mart.
 
     Args:
@@ -77,7 +77,8 @@ def build_mart_db(source: str = "excel") -> "duckdb.DuckDBPyConnection":
 
     if source == "excel":
         xl = pd.ExcelFile(EXCEL)
-        for sheet in xl.sheet_names:
+        for sheet_name in xl.sheet_names:
+            sheet = str(sheet_name)  # pandas go sheet_names la list[Any] (int|str)
             df = xl.parse(sheet).rename(columns=RENAME.get(sheet, {}))
             con.register(f"_tmp_{sheet}", df)
             con.execute(f"CREATE TABLE raw.{sheet} AS SELECT * FROM _tmp_{sheet}")
@@ -101,18 +102,20 @@ def build_mart_db(source: str = "excel") -> "duckdb.DuckDBPyConnection":
             continue
         try:
             con.execute(stmt)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise RuntimeError(
                 f"DDL that bai:\n  {stmt[:160]}...\n  -> {exc}"
             ) from exc
     return con
 
 
-def check_row_counts(con: "duckdb.DuckDBPyConnection") -> list[str]:
+def check_row_counts(con: duckdb.DuckDBPyConnection) -> list[str]:
     """Doi chieu so dong voi EXPECTED_ROWS. Tra ve danh sach lech (rong = dat)."""
     out: list[str] = []
     for table, expected in EXPECTED_ROWS.items():
-        got = con.sql(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        row = con.sql(f"SELECT COUNT(*) FROM {table}").fetchone()
+        assert row is not None
+        got = row[0]
         if got != expected:
             out.append(f"{table}: {got} dong, ky vong {expected}")
     return out
