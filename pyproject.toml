@@ -41,7 +41,7 @@ strict = true
 
 [[tool.mypy.overrides]]
 module = [
-    "duckdb.*", "sqlglot.*", "greennode_agentbase.*",
+    "duckdb.*", "sqlglot.*", "greennode_agentbase.*", "scipy.*", "sklearn.*",
 ]
 ignore_missing_imports = true
 
