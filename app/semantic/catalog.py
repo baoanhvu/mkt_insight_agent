@@ -196,6 +196,19 @@ class YamlCatalog:
                 out.update(dim.allowed_values)
         return out
 
+    def all_metrics(self, dataset: str | None = None) -> tuple[Metric, ...]:
+        """Toan bo chi so, tuy chon loc theo dataset. Dung boi schema_tool
+        (T08) de mo ta catalog bang tieng Viet cho LLM doc."""
+        return tuple(
+            m for m in self._metrics.values() if dataset is None or m.dataset == dataset
+        )
+
+    def all_dimensions(self, dataset: str | None = None) -> tuple[Dimension, ...]:
+        return tuple(
+            d for d in self._dimensions.values()
+            if dataset is None or dataset in d.datasets
+        )
+
     def validate_against_db(self, engine: Any) -> list[str]:
         """Doi chieu moi `table`/`column` da khai bao voi schema THAT.
 

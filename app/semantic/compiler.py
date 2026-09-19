@@ -104,7 +104,14 @@ def _compile_filters(
     return clauses, params
 
 
-def _compile_having(having: str, selected_names: set[str]) -> tuple[str, dict[str, Any]]:
+def _compile_having(
+    having: str, selected_names: set[str], metric_exprs: dict[str, str]
+) -> tuple[str, dict[str, Any]]:
+    """Postgres KHONG cho HAVING tham chieu alias dat trong SELECT (khac
+    ORDER BY, cho phep dieu do) - phai lap lai chinh bieu thuc tong hop.
+    `metric_exprs` map ten metric -> bieu thuc SQL cua no (vi du "SUM(net_profit)"),
+    de HAVING viet lai thanh "(SUM(net_profit)) < :having_value" thay vi
+    "net_profit < :having_value" (loi GroupingError tren Postgres)."""
     m = _HAVING_RE.match(having)
     if not m:
         raise InvalidFilterError(
@@ -116,7 +123,8 @@ def _compile_having(having: str, selected_names: set[str]) -> tuple[str, dict[st
         raise InvalidFilterError(
             f"having tham chieu ten '{name}' khong nam trong SELECT: {sorted(selected_names)}"
         )
-    return f"{name} {op} :having_value", {"having_value": float(value)}
+    expr = f"({metric_exprs[name]})" if name in metric_exprs else name
+    return f"{expr} {op} :having_value", {"having_value": float(value)}
 
 
 def _query_id(sql: str, params: dict[str, Any]) -> str:
@@ -130,7 +138,16 @@ class MetricCompiler:
     def __init__(self, catalog: YamlCatalog) -> None:
         self.catalog = catalog
 
-    def compile(self, req: MetricRequest) -> CompiledQuery:
+    def compile(self, req: MetricRequest, *, dataset_override: str | None = None) -> CompiledQuery:
+        """`dataset_override`: dung khi playbook (T08) can chay mot chi so
+        tren mot dataset TUONG THICH nhung khac dataset khai bao goc cua no -
+        vi du "customers"/"repeat_customer_rate" khai bao dataset "customer"
+        (mart.mart_customer_value) nhung mot section muon nhom theo `segment`,
+        cot chi co o dataset "segment" (mart.v_customer_segment). Hai bang do
+        CO CUNG cot (segment la view = customer + 1 cot), nen bieu thuc SQL
+        cua chi so (vi du "COUNT(*)", "AVG(profit_to_date)") van dung nguyen
+        khi doi FROM. KHONG dung override tuy tien - chi hop le giua cap
+        (customer, segment) vi day la hai goc nhin CUNG MOT du lieu."""
         if not req.metrics:
             raise InvalidFilterError("MetricRequest phai co it nhat mot chi so trong 'metrics'")
 
@@ -144,12 +161,22 @@ class MetricCompiler:
             )
 
         datasets_used = {m.dataset for m in metrics}
-        if len(datasets_used) > 1:
-            raise InvalidFilterError(
-                "khong the gop cac chi so tu nhieu dataset khac nhau trong mot "
-                f"truy van: {sorted(datasets_used)} (chi so: {list(req.metrics)})"
-            )
-        ds = self.catalog.dataset(next(iter(datasets_used)))
+        if dataset_override is not None:
+            if not datasets_used <= {"customer", "segment"} or dataset_override not in (
+                "customer", "segment"
+            ):
+                raise InvalidFilterError(
+                    f"dataset_override='{dataset_override}' chi ho tro giua cap "
+                    f"(customer, segment); chi so dang dung dataset {sorted(datasets_used)}"
+                )
+            ds = self.catalog.dataset(dataset_override)
+        else:
+            if len(datasets_used) > 1:
+                raise InvalidFilterError(
+                    "khong the gop cac chi so tu nhieu dataset khac nhau trong mot "
+                    f"truy van: {sorted(datasets_used)} (chi so: {list(req.metrics)})"
+                )
+            ds = self.catalog.dataset(next(iter(datasets_used)))
 
         dims = []
         for dname in req.dimensions:
@@ -190,7 +217,8 @@ class MetricCompiler:
 
         having_clause = ""
         if req.having:
-            clause, having_params = _compile_having(req.having, selected_names)
+            metric_exprs = {m.name: m.sql for m in metrics if m.sql}
+            clause, having_params = _compile_having(req.having, selected_names, metric_exprs)
             having_clause = f" HAVING {clause}"
             params.update(having_params)
 

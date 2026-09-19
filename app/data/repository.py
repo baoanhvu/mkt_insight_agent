@@ -34,8 +34,10 @@ class SqlMetricRunner:
     def engine(self) -> Engine:
         return self._engine if self._engine is not None else get_engine_ro()
 
-    def run(self, req: MetricRequest, fact_id: str, title: str) -> Fact:
-        cq = self.compiler.compile(req)
+    def run(
+        self, req: MetricRequest, fact_id: str, title: str, *, dataset_override: str | None = None,
+    ) -> Fact:
+        cq = self.compiler.compile(req, dataset_override=dataset_override)
         with self.engine.connect() as conn:
             result = conn.execute(text(cq.sql), cq.params)
             column_names = list(result.keys())
