@@ -8,6 +8,7 @@ duckdb==1.1.*          # etl/duckdb_mirror.py - mirror khong can Postgres
 mypy==1.13.*
 pandas-stubs==2.2.*
 types-PyYAML==6.0.*
+types-cachetools==5.5.*
 ruff==0.7.*
 import-linter==2.1.*
 playwright==1.48.*
