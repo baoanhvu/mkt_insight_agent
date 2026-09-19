@@ -16,6 +16,7 @@ vi ban goc khong lam duoc gi ca.
 from __future__ import annotations
 
 import re
+from decimal import Decimal
 from typing import Any
 
 from app.contracts import Cell, ColumnSpec, Fact, NumericPolicy, Unit
@@ -140,9 +141,12 @@ class EvidenceSet(_BaseEvidenceSet):
 
 
 def _numeric_match(claimed: float, cell_value: Any, policy: NumericPolicy) -> bool:
-    if not isinstance(cell_value, int | float):
-        return False
     if isinstance(cell_value, bool):  # bool la subclass cua int - loai truoc
+        return False
+    # Cot NUMERIC/DECIMAL cua Postgres ve toi day duoi dang decimal.Decimal
+    # (qua psycopg/SQLAlchemy), khong phai int/float - PHAI nhan ca kieu do,
+    # neu khong moi phep so sanh voi cot tien/ty le tu DB thuc se luon False.
+    if not isinstance(cell_value, int | float | Decimal):
         return False
     cv = float(cell_value)
 

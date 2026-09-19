@@ -5,10 +5,9 @@ Ghi TRACE day du vao `ops.agent_trace` la viec cua T11 (`app/telemetry/`) -
 AgentState o day duoc dien day nhung CHUA tu ghi xuong DB; T11 chi can them
 mot loi goi `TraceStore.save(state)` sau `answer()`.
 
-# ASSUMPTION: buoc VERIFY o day la BAN RUT GON (xem app/agent/decider.py) -
-T09 se xay L0-L6 day du (`app/verify/`) va orchestrator se doi sang goi pipeline
-do thay vi `basic_numeric_grounding_check`. Khong ha thap R1 trong luc cho:
-the chua phan giai duoc VAN bi chan (BLOCK), chi la chua co du 7 lop.
+VERIFY dung `app.verify.pipeline` (L2 numeric + L3 entity + L4 stats guard,
+T09) - L5 (LLM judge, bat dong bo) la T11, L0/L1 (SQL tinh) chi ap dung cho
+duong freeform (T12, chua kich hoat o day).
 """
 
 from __future__ import annotations
@@ -17,7 +16,6 @@ import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
-from app.agent.decider import band_to_decision, basic_numeric_grounding_check, decide
 from app.agent.narrator import LLMNarrator
 from app.agent.planner import PlannedSection, Planner
 from app.agent.playbooks import Playbook, PlaybookStore, get_playbook_store
@@ -42,6 +40,7 @@ from app.llm.usage import UsageCounters
 from app.prompts.loader import PromptLoader
 from app.semantic.evidence import EvidenceSet
 from app.settings import Settings, get_settings
+from app.verify.pipeline import band_to_decision, compute_trust, run_deterministic_checks
 
 
 def _merge_facts(
@@ -178,7 +177,7 @@ class Orchestrator:
         # NARRATE
         if usage.llm_calls >= self.max_llm_calls:
             state.narrative_final = _format_evidence_as_markdown_table(ev)
-            state.checks = [basic_numeric_grounding_check([])]
+            state.checks = []
             state.trust = TrustScore(value=0.5, band=Band.HEDGE,
                                      reasons=["het luot goi LLM - hien bang so tho"])
             state.decision = Decision.HEDGED
@@ -189,14 +188,14 @@ class Orchestrator:
         usage.add(tokens_in=0, tokens_out=0)
         state.narrative_template = narrative
 
-        # RENDER truoc, VERIFY tren chinh chuoi hien thi cuoi cung
-        rendered_text, unresolved = render_narrative(narrative, ev)
+        # RENDER de co van ban hien thi; VERIFY (L2+L3+L4) chay tren CHINH
+        # `narrative` goc (con the) - moi check tu goi ev.substitute() rieng
+        # de lay dang hien thi cuoi cung khi quet so tran/thuc the.
+        rendered_text, _unresolved = render_narrative(narrative, ev)
         state.narrative_final = rendered_text
-        state.checks = [basic_numeric_grounding_check(unresolved)]
 
-        t_high = float(self.settings.verify.get("t_high", 0.85))
-        t_low = float(self.settings.verify.get("t_low", 0.60))
-        state.trust = decide(state.checks, t_high=t_high, t_low=t_low)
+        state.checks = run_deterministic_checks(narrative, ev, self.tools.catalog)
+        state.trust = compute_trust(state.checks)
         state.decision = band_to_decision(state.trust.band)
 
         self._finalize(state, usage, playbook)
