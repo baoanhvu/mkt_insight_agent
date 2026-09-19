@@ -1,0 +1,21 @@
+# Phu thuoc chinh - xem docs/11-module-spec.md muc 11.7
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+pydantic==2.9.*
+pydantic-settings==2.6.*
+sqlalchemy==2.0.*
+psycopg[binary]==3.2.*
+sqlglot==25.*
+openai==1.54.*
+jinja2==3.1.*
+pyyaml==6.0.*
+pandas==2.2.*
+openpyxl==3.1.*
+pyarrow==18.*   # ASSUMPTION: doc goc ghi 17.*, nhung 17 khong co wheel cp313
+scipy==1.14.*
+numpy==2.1.*
+cachetools==5.5.*
+structlog==24.*
+httpx==0.27.*
+sse-starlette==2.1.*
+python-multipart==0.0.*

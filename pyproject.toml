@@ -1,0 +1,94 @@
+[project]
+name = "mkt-insight-agent"
+version = "0.1.0"
+description = "Agent phan tich hieu qua chien dich marketing va gia tri vong doi khach hang"
+requires-python = ">=3.13,<3.14"
+readme = "README.md"
+
+# =============================================================================
+# ruff - linter + formatter
+# =============================================================================
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+exclude = ["data", "docs", "HD_cua_BTC"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",  # dong dai: da co line-length, nhung few-shot/SQL literal duoc mien
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "etl", "evals"]
+
+# =============================================================================
+# mypy - --strict CHI cho ba module lo thanh chinh chong hallucination
+# (xem CLAUDE.md: "Type hint bat buoc o moi ham public.
+#  mypy --strict cho semantic/, verify/, analytics/.")
+# =============================================================================
+[tool.mypy]
+python_version = "3.13"
+plugins = []
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["app.semantic.*", "app.verify.*", "app.analytics.*"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "duckdb.*", "sqlglot.*", "greennode_agentbase.*",
+]
+ignore_missing_imports = true
+
+# =============================================================================
+# pytest
+# =============================================================================
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra"
+filterwarnings = [
+    "error::DeprecationWarning",
+    "ignore::DeprecationWarning:duckdb",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/web/templates/*"]
+
+# =============================================================================
+# import-linter - ep ranh gioi module o docs/04-architecture.md §4.9
+# analytics/ va verify/ phai THUAN: khong I/O, khong biet DB hay LLM ton tai,
+# nen test cua chung khong can DB va khong can mang. Vi pham day la loi CI,
+# khong phai loi review bo qua duoc.
+# =============================================================================
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "analytics va verify phai thuan, khong I/O"
+type = "forbidden"
+source_modules = ["app.analytics", "app.verify"]
+forbidden_modules = ["app.data", "app.llm", "app.api"]
+
+[[tool.importlinter.contracts]]
+name = "semantic khong phu thuoc llm hay agent"
+type = "forbidden"
+source_modules = ["app.semantic"]
+forbidden_modules = ["app.llm", "app.agent"]
+
+[[tool.importlinter.contracts]]
+name = "contracts va errors la la cua cay - khong import module app khac"
+type = "forbidden"
+source_modules = ["app.contracts", "app.errors"]
+forbidden_modules = [
+    "app.api", "app.agent", "app.analytics", "app.verify", "app.semantic",
+    "app.data", "app.llm", "app.prompts", "app.telemetry", "app.web",
+    "app.settings", "app.logging_",
+]

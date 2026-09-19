@@ -1,0 +1,17 @@
+-r requirements.txt
+
+# Test + kiem chat luong - xem CLAUDE.md muc "Chay gi truoc khi coi la xong"
+pytest==8.3.*
+pytest-asyncio==0.24.*
+pytest-cov==5.0.*
+duckdb==1.1.*          # etl/duckdb_mirror.py - mirror khong can Postgres
+mypy==1.13.*
+types-PyYAML==6.0.*
+ruff==0.7.*
+import-linter==2.1.*
+playwright==1.48.*
+
+# Dung cho che do doi chung tuy chon cua segmentation (06 muc 6.6), KHONG phai
+# phu thuoc chinh - xem docs/11-module-spec.md muc 11.7 vi sao khong dua vao
+# requirements.txt.
+scikit-learn==1.5.*

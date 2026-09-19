@@ -1,0 +1,28 @@
+# Bi mat - xem docs/10-config-secrets.md muc 10.5
+config/secrets.yaml
+.env
+.greennode.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Du lieu sinh ra / mirror cuc bo
+data/*.duckdb
+*.duckdb
+
+# IDE / OS
+.vscode/
+.DS_Store
+
+# Bao cao eval
+evals/reports/
+tests/e2e/report/
