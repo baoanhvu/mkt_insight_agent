@@ -1,0 +1,49 @@
+<div x-show="tab === 'campaign'" x-cloak>
+  {% include "_kpi.html" %}
+
+  <div class="grid md:grid-cols-2 gap-3 mb-4">
+    <div class="bg-white rounded-xl border p-4">
+      <div class="font-medium mb-2">ROMI theo chiến dịch</div>
+      <div id="chart-romi" style="height: 320px"></div>
+    </div>
+    <div class="bg-white rounded-xl border p-4">
+      <div class="font-medium mb-2">Phễu: lead → hồ sơ → giải ngân</div>
+      <div id="chart-funnel" style="height: 320px"></div>
+      <p class="text-[11px] text-slate-400 mt-2" x-text="funnel.caveat_vi"></p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border p-4 mb-4">
+    <div class="font-medium mb-2">Xu hướng theo ngày (01–31/08/2026)</div>
+    <div id="chart-trend" style="height: 280px"></div>
+  </div>
+
+  <div class="bg-white rounded-xl border overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100 text-left">
+        <tr>
+          <th class="p-2">Chiến dịch</th><th class="p-2">Kênh</th>
+          <th class="p-2 text-right">Lead</th><th class="p-2 text-right">Hồ sơ</th>
+          <th class="p-2 text-right">Giải ngân</th><th class="p-2 text-right">ROMI</th>
+          <th class="p-2 text-right">Lợi nhuận ròng</th><th class="p-2 text-right">Tỷ lệ duyệt</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="row in campaigns" :key="row.campaign_id">
+          <tr class="border-t" :data-campaign="row.campaign_id">
+            <td class="p-2" x-text="row.campaign_name"></td>
+            <td class="p-2" x-text="row.channel"></td>
+            <td class="p-2 text-right" x-text="fmtCount(row.leads)"></td>
+            <td class="p-2 text-right" x-text="fmtCount(row.applications)"></td>
+            <td class="p-2 text-right" x-text="fmtCount(row.disbursed_loans)"></td>
+            <td class="p-2 text-right font-medium"
+                :class="row.romi < 0 ? 'text-red-600' : 'text-emerald-700'"
+                x-text="fmtRatio(row.romi)"></td>
+            <td class="p-2 text-right" x-text="fmtVnd(row.net_profit)"></td>
+            <td class="p-2 text-right" x-text="fmtPct(row.approval_rate)"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</div>

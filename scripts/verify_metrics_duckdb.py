@@ -85,7 +85,7 @@ def build_db() -> duckdb.DuckDBPyConnection:
             continue
         try:
             con.execute(stmt)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"  LOI khi chay DDL:\n    {stmt[:110]}...\n    -> {exc}")
             raise
     return con
@@ -169,7 +169,7 @@ def main() -> int:
 
             try:
                 df = con.sql(sql).df()
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 n_fail += 1
                 failures.append(f"{mname}.{key}: SQL loi -> {str(exc)[:90]}")
                 continue

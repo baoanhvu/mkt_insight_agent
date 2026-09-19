@@ -1,0 +1,34 @@
+<div x-show="tab === 'persona'" x-cloak>
+  <p class="text-xs text-slate-500 mb-3">
+    Phân khúc tính bằng luật tường minh (không LLM, không k-means cho câu trả lời thật).
+    Tổng luôn bằng 100% số khách — không có phân khúc "chưa xếp loại".
+  </p>
+  <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+    <template x-for="seg in segments" :key="seg.segment_id">
+      <div class="bg-white rounded-xl border p-4" :data-segment="seg.segment_id">
+        <div class="flex justify-between items-baseline">
+          <div class="font-medium" x-text="seg.label_vi"></div>
+          <div class="text-xs text-slate-500" x-text="fmtPct(seg.share)"></div>
+        </div>
+        <div class="text-2xl font-semibold mt-1" x-text="fmtCount(seg.n)"></div>
+        <div class="text-xs text-slate-500 mt-2">Lợi nhuận TB · trung vị</div>
+        <div class="text-sm">
+          <span x-text="fmtVnd(seg.avg_profit)"></span> ·
+          <span :class="seg.median_profit < 0 ? 'text-red-600' : ''" x-text="fmtVnd(seg.median_profit)"></span>
+        </div>
+        <div class="text-xs text-slate-500 mt-2">Tỷ lệ vay lại (CI95)</div>
+        <div class="text-sm" x-text="fmtPct(seg.repeat_rate) + ' [' + fmtPct(seg.repeat_rate_ci[0]) + ' – ' + fmtPct(seg.repeat_rate_ci[1]) + ']'"></div>
+        <template x-if="!seg.clv_predicted.insufficient">
+          <div>
+            <div class="text-xs text-slate-500 mt-2">CLV dự báo (khoảng)</div>
+            <div class="text-sm font-medium" x-text="fmtVnd(seg.clv_predicted.lower) + ' – ' + fmtVnd(seg.clv_predicted.upper)"></div>
+          </div>
+        </template>
+        <template x-if="seg.clv_predicted.insufficient">
+          <div class="text-xs text-amber-600 mt-2" x-text="seg.clv_predicted.reason || 'Không đủ dữ liệu để dự báo CLV'"></div>
+        </template>
+        <p class="text-[11px] text-slate-400 mt-3" x-text="seg.action_hint_vi"></p>
+      </div>
+    </template>
+  </div>
+</div>

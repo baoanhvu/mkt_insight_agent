@@ -1,0 +1,29 @@
+<div x-show="tab === 'chat'" x-cloak class="flex flex-col">
+  <!-- Rang buoc BAT BUOC: vung hoi thoai toi da 60% chieu cao man hinh.
+       max-height (khong phai height) de khung co lai khi hoi thoai ngan.
+       dvh cho mobile (thanh dia chi co giai tren Safari khong pha vo composer).
+       Xem docs/09-api-ui.md muc 9.4. -->
+  <div id="chat-scroll" class="overflow-y-auto overscroll-contain border rounded-t-xl bg-white p-3 space-y-2">
+    <template x-for="(m, i) in messages" :key="i">
+      <div :class="m.role === 'user' ? 'text-right' : 'text-left'">
+        <div class="inline-block max-w-[85%] rounded-lg px-3 py-2 text-sm"
+             :class="m.role === 'user' ? 'bg-slate-900 text-white' : 'bg-slate-100'"
+             x-text="m.content"></div>
+      </div>
+    </template>
+    <template x-if="messages.length === 0">
+      <p class="text-sm text-slate-400">
+        Hỏi đáp tự do sẽ khả dụng khi tích hợp LLM. Khung hội thoại này đã sẵn sàng
+        (ràng buộc ≤ 60% chiều cao màn hình).
+      </p>
+    </template>
+  </div>
+
+  <form class="border border-t-0 rounded-b-xl bg-white p-3 flex gap-2" @submit.prevent="sendChat()">
+    <input id="chat-input" x-model="draft" autocomplete="off"
+           class="flex-1 rounded-lg border px-3 py-2 text-sm"
+           placeholder="Nhập câu hỏi... (chat đầy đủ sẽ mở ở giai đoạn tích hợp LLM)" />
+    <button id="chat-send" type="submit"
+            class="rounded-lg px-4 py-2 bg-slate-900 text-white text-sm">Gửi</button>
+  </form>
+</div>

@@ -11,7 +11,11 @@ readme = "README.md"
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-exclude = ["data", "docs", "HD_cua_BTC"]
+# app/contracts.py va app/errors.py la file protected (CLAUDE.md: "KHONG viet
+# lai") - loai khoi `ruff check --fix .` chay tren toan repo de khong bao gio
+# bi auto-fix vo tinh sua doi (da xay ra mot lan: --fix gop AsyncIterator va
+# Sequence tu typing sang collections.abc, phai revert bang git checkout).
+exclude = ["data", "docs", "HD_cua_BTC", "app/contracts.py", "app/errors.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
@@ -24,6 +28,12 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "etl", "evals"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dung Depends()/Query() nhu gia tri mac dinh cua tham so theo dung
+# thiet ke cua no (khong phai loi "goi ham trong default" ma B008 canh bao
+# noi chung) - xem tai lieu FastAPI ve Dependency Injection.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
 
 # =============================================================================
 # mypy - --strict CHI cho ba module lo thanh chinh chong hallucination

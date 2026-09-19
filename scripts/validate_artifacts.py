@@ -30,7 +30,7 @@ def warn(msg: str) -> None:
 def load(path: Path) -> dict:
     try:
         return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         err(f"{path.relative_to(ROOT)}: khong parse duoc -> {exc}")
         return {}
 
@@ -245,7 +245,7 @@ def main() -> int:
     for f in ["app/contracts.py", "app/errors.py"]:
         try:
             py_compile.compile(str(ROOT / f), doraise=True)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             err(f"{f}: khong compile duoc -> {exc}")
 
     # -------------------------------------------------------------------------
@@ -263,7 +263,7 @@ def main() -> int:
           f"{sum(len(p.get('few_shots', []) or []) for p in prompts.values())})")
     print(f"  luat phan khuc     {len(rules)}")
     print(f"  hanh dong D3       {len(analytics.get('actions', []) or [])}")
-    print(f"  ma loi             (xem app/errors.py)")
+    print("  ma loi             (xem app/errors.py)")
     print(f"  golden set         {len(cases)}  (ca bay: {n_trap})")
     print()
 

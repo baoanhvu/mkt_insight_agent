@@ -12,6 +12,7 @@ types-cachetools==5.5.*
 ruff==0.7.*
 import-linter==2.1.*
 playwright==1.48.*
+pytest-playwright==0.5.*
 
 # Dung cho che do doi chung tuy chon cua segmentation (06 muc 6.6), KHONG phai
 # phu thuoc chinh - xem docs/11-module-spec.md muc 11.7 vi sao khong dua vao

@@ -1,0 +1,15 @@
+[x-cloak] { display: none !important; }
+
+/* Rang buoc BAT BUOC: vung hoi thoai toi da 60% chieu cao man hinh.
+   max-height (khong phai height): khung co lai khi hoi thoai ngan, chi
+   cham tran 60% khi dai. Xem docs/09-api-ui.md muc 9.4. */
+#chat-scroll { max-height: 60vh; }
+@supports (height: 100dvh) {
+  #chat-scroll { max-height: 60dvh; }
+}
+
+/* Man hinh hep: chat va dashboard xep chong, chat van giu tran thap hon
+   mot chut de composer khong bi troi khoi man hinh. */
+@media (max-width: 768px) {
+  #chat-scroll { max-height: 55dvh; }
+}

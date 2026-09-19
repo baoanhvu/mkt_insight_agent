@@ -1,0 +1,30 @@
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+  <div class="bg-white rounded-xl border p-4">
+    <div class="text-xs text-slate-500">Lợi nhuận ròng</div>
+    <div class="text-xl font-semibold" x-text="fmtVndShort(summary.net_profit)">—</div>
+  </div>
+  <div class="bg-white rounded-xl border p-4">
+    <div class="text-xs text-slate-500">ROMI trung bình</div>
+    <div class="text-xl font-semibold" :class="summary.romi < 0 ? 'text-red-600' : 'text-emerald-700'"
+         x-text="fmtRatio(summary.romi)">—</div>
+  </div>
+  <div class="bg-white rounded-xl border p-4">
+    <div class="text-xs text-slate-500">Số hồ sơ / giải ngân</div>
+    <div class="text-xl font-semibold" x-text="fmtCount(summary.applications) + ' / ' + fmtCount(summary.disbursed_loans)">—</div>
+  </div>
+  <div class="bg-white rounded-xl border p-4">
+    <div class="text-xs text-slate-500">Tỷ lệ vay lại</div>
+    <div class="text-xl font-semibold" x-text="fmtPct(summary.repeat_customer_rate)">—</div>
+  </div>
+  <div class="bg-white rounded-xl border p-4">
+    <div class="text-xs text-slate-500">Lợi nhuận / khách (TB · trung vị)</div>
+    <div class="text-sm font-semibold">
+      <span x-text="fmtVnd(summary.avg_profit_per_customer)">—</span>
+      ·
+      <span :class="summary.median_profit_per_customer < 0 ? 'text-red-600' : ''"
+            x-text="fmtVnd(summary.median_profit_per_customer)">—</span>
+    </div>
+    <div class="text-[11px] text-slate-400 mt-1"
+         x-text="fmtPct(summary.negative_profit_share) + ' khách lỗ'"></div>
+  </div>
+</div>

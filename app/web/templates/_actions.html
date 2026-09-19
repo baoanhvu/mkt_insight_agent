@@ -1,0 +1,29 @@
+<div x-show="tab === 'actions'" x-cloak>
+  <p class="text-xs text-slate-500 mb-3">
+    Thư viện hành động không do LLM nghĩ ra — hệ thống chỉ kiểm tra điều kiện đủ
+    và trình bày tác động đã kiểm chứng. Hành động chưa đủ điều kiện vẫn hiện,
+    nhưng bị làm mờ.
+  </p>
+  <div class="grid md:grid-cols-2 gap-3">
+    <template x-for="a in actions" :key="a.id">
+      <div class="bg-white rounded-xl border p-4" :class="!a.eligible ? 'opacity-50' : ''"
+           :data-action="a.id">
+        <div class="flex justify-between items-start gap-2">
+          <div class="font-medium" x-text="a.label_vi"></div>
+          <span class="text-[11px] px-2 py-0.5 rounded-full"
+                :class="a.eligible ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'"
+                x-text="a.eligible ? 'Đủ điều kiện' : 'Chưa đủ điều kiện'"></span>
+        </div>
+        <div class="text-xs text-slate-500 mt-1" x-text="'Công sức: ' + a.effort + ' · Ưu tiên #' + a.priority"></div>
+        <template x-if="a.impact_vnd !== null">
+          <div class="text-lg font-semibold mt-2" x-text="fmtVnd(a.impact_vnd)"></div>
+        </template>
+        <p class="text-xs text-slate-600 mt-2" x-text="a.impact_caveat_vi"></p>
+        <template x-if="a.requires_experiment">
+          <p class="text-[11px] text-amber-600 mt-1">⚠ Cần chạy A/B test trước khi mở rộng.</p>
+        </template>
+        <p class="text-[11px] text-slate-400 mt-2" x-text="a.eligibility_note_vi"></p>
+      </div>
+    </template>
+  </div>
+</div>

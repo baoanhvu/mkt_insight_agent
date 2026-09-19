@@ -1,0 +1,18 @@
+<!-- Panel "Xem SQL & du lieu" (docs/09-api-ui.md muc 9.6). Duoc mo tu chat -
+     day la khung UI, noi dung thuc do route /api/chat (T10) day vao qua Alpine. -->
+<div x-show="evidencePanelOpen" x-cloak
+     class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+     @click.self="evidencePanelOpen = false">
+  <div class="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-4">
+    <div class="flex justify-between items-center mb-2">
+      <div class="font-medium">Bằng chứng<span x-show="evidenceTraceId" x-text="' (trace ' + evidenceTraceId + ')'"></span></div>
+      <button class="text-slate-400" @click="evidencePanelOpen = false">✕</button>
+    </div>
+    <template x-for="fact in evidenceFacts" :key="fact.fact_id">
+      <div class="mb-3 border rounded-lg p-2">
+        <div class="text-sm font-medium" x-text="fact.fact_id + ' — ' + fact.title"></div>
+        <pre class="text-[11px] bg-slate-50 p-2 rounded overflow-x-auto" x-text="fact.sql"></pre>
+      </div>
+    </template>
+  </div>
+</div>
