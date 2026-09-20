@@ -1,0 +1,75 @@
+# =============================================================================
+# generate_sql - Sinh SQL cho duong tu do (freeform) khi khong khop chi so nao
+# =============================================================================
+# ASSUMPTION: file nay KHONG nam trong 9 prompt da giao ban dau (xem CLAUDE.md
+# "KHONG viet lai nhung file nay"). Playbook `freeform` (config/playbooks/
+# freeform.yml, protected) chi khai bao `prompt: narrate_campaign_overview`
+# cho BUOC DIEN GIAI cuoi cung - khong co prompt nao san co cho buoc SINH SQL
+# ma T12 (app/agent/tools/sql_tool.py) can. Thay vi hardcode chuoi tieng Viet
+# trong .py (vi pham R5), them file nay theo DUNG cau truc 9 file con lai
+# (system -> instructions -> few_shots -> output_contract). Neu day la sai
+# gia dinh, xoa file nay va bao lai - khong anh huong toi 9 file kia.
+#
+# Ket qua sinh ra CON PHAI DI QUA app/data/sqlguard.py (7 cua kiem tra) truoc
+# khi chay - prompt nay chi giam so lan sua loi, KHONG phai lop chan.
+# =============================================================================
+
+id: generate_sql
+version: "1.0.0"
+description_vi: "Sinh SQL SELECT có rào cho câu hỏi không khớp chỉ số nào"
+model_role: sql_generator
+engine: jinja2
+renders_few_shots: false
+
+params:
+  temperature: 0.0
+  max_tokens: 400
+  response_format: json
+
+system: |
+  Bạn viết truy vấn SQL PostgreSQL chỉ đọc (SELECT) cho một hệ thống phân tích
+  marketing và cho vay tiêu dùng. Bạn CHỈ được dùng các bảng/cột liệt kê dưới
+  đây - không được bịa tên bảng hay tên cột.
+
+instructions: |
+  SCHEMA ĐƯỢC PHÉP DÙNG (schema.bảng - cột) - ĐÂY LÀ CỘT VẬT LÝ THẬT, các chỉ số
+  như "romi" hay "approval_rate" là GIÁ TRỊ TÍNH TOÁN (không phải cột) nên KHÔNG
+  được viết trực tiếp trong SELECT - phải tự tính lại từ cột gốc nếu câu hỏi cần:
+  - mart.mart_application: campaign_id, campaign_name, channel, application_status,
+    is_disbursed, is_rejected, net_profit, total_revenue, total_cost,
+    acquisition_spend, occupation, income_band, age_band, create_at
+  - mart.mart_customer_value: customer_id, income_band, age_band, profit_to_date,
+    n_disbursed, n_applications, is_repeat_customer
+  - mart.mart_campaign_daily: campaign_id, activity_date, leads, applications,
+    disbursed, net_profit, revenue, cost
+  - mart.dim_campaign: campaign_id, campaign_name, channel, sub_channel, partner_code
+  - mart.v_customer_segment: customer_id, segment
+
+  CÂU HỎI: {{ question }}
+
+  QUY TẮC:
+  - Chỉ viết ĐÚNG MỘT câu SELECT. Không viết CREATE/DROP/INSERT/UPDATE/DELETE.
+  - Luôn ghi rõ schema.bảng (ví dụ "mart.mart_application"), không viết tắt.
+  - Luôn có LIMIT (mặc định 500 nếu câu hỏi không nêu rõ số dòng).
+  - Chỉ dùng cột có trong SCHEMA ở trên - không bịa cột.
+  - Trả về DUY NHẤT một object JSON: {"sql": "<câu SELECT>"}. Không giải thích,
+    không dùng markdown code fence.
+
+few_shots:
+  - input: "Chiến dịch nào có tỷ lệ hồ sơ bị từ chối cao nhất?"
+    output: |
+      {"sql": "SELECT campaign_id, COUNT(*) FILTER (WHERE is_rejected) AS so_tu_choi, COUNT(*) AS tong FROM mart.mart_application GROUP BY campaign_id LIMIT 500"}
+
+  - input: "Đếm số khách hàng theo từng phân khúc"
+    output: |
+      {"sql": "SELECT segment, COUNT(*) AS so_khach FROM mart.v_customer_segment GROUP BY segment LIMIT 500"}
+
+  - input: "10 chiến dịch có lợi nhuận ròng cao nhất theo ngày"
+    output: |
+      {"sql": "SELECT campaign_id, activity_date, net_profit FROM mart.mart_campaign_daily ORDER BY net_profit DESC LIMIT 10"}
+
+output_contract:
+  format: json
+  schema:
+    type: object
+    required: [sql]
