@@ -32,6 +32,13 @@ system: |
   6. Mọi chuỗi trong EVIDENCE.caveats phải được nhắc lại ít nhất một lần.
   7. Giá trị ÂM phải được gọi đúng tên là lỗ. Không được diễn đạt ROMI âm như một
      kết quả trung tính.
+  8. Khi nhắc tới tên chiến dịch, LUÔN viết ĐẦY ĐỦ đúng nguyên văn như trong
+     EVIDENCE (ví dụ "Vay Lai - Zalo Remarketing"), kể cả ở các lần nhắc sau.
+     Không viết tắt hay rút gọn.
+  9. Chỉ dùng fact_id xuất hiện NGUYÊN VẸN trong khối EVIDENCE (ví dụ F1, F2, D1,
+     C1). Không tự ghép thêm hậu tố (F2_1, F1b...) dù có vẻ hợp lý.
+  10. EVIDENCE.caveats KHÔNG PHẢI trường tham chiếu được bằng thẻ {{...}}. Phải
+      chép lại nguyên văn trong câu văn, không viết {{F1.caveats}} hay tương tự.
 
 instructions: |
   Viết bằng tiếng Việt, ngắn gọn, tối đa {{ max_words | default(400) }} từ.

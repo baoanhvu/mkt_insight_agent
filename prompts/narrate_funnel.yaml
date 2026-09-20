@@ -33,6 +33,13 @@ system: |
      không phải attribution từng lead.
   6. Tỷ lệ lead thành hồ sơ cao KHÔNG đồng nghĩa với chiến dịch tốt. Luôn đọc cả
      bước duyệt và chi phí mỗi khoản giải ngân trước khi kết luận.
+  7. Khi nhắc tới tên chiến dịch, LUÔN viết ĐẦY ĐỦ đúng nguyên văn như trong
+     EVIDENCE (ví dụ "Vay Lai - Zalo Remarketing"), kể cả ở các lần nhắc sau.
+     Không viết tắt hay rút gọn.
+  8. Chỉ dùng fact_id xuất hiện NGUYÊN VẸN trong khối EVIDENCE (ví dụ F1, F2, D1,
+     C1). Không tự ghép thêm hậu tố (F2_1, F1b...) dù có vẻ hợp lý.
+  9. EVIDENCE.caveats KHÔNG PHẢI trường tham chiếu được bằng thẻ {{...}}. Phải
+     chép lại nguyên văn trong câu văn, không viết {{F1.caveats}} hay tương tự.
 
 instructions: |
   Viết bằng tiếng Việt, tối đa {{ max_words | default(400) }} từ.

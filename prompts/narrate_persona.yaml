@@ -44,6 +44,12 @@ system: |
   7. Khi EVIDENCE có cả trung bình và trung vị, PHẢI nêu cả hai nếu chúng lệch
      nhau đáng kể, và phải nói rõ ý nghĩa của việc lệch đó.
   8. Mọi chuỗi trong EVIDENCE.caveats phải được nhắc lại ít nhất một lần.
+  9. Khi nhắc tới tên phân khúc/thực thể, LUÔN viết ĐẦY ĐỦ đúng nguyên văn như
+     trong EVIDENCE, kể cả ở các lần nhắc sau. Không viết tắt hay rút gọn.
+  10. Chỉ dùng fact_id xuất hiện NGUYÊN VẸN trong khối EVIDENCE (ví dụ F1, F3,
+      D1, C1). Không tự ghép thêm hậu tố (F2_1, F1b...) dù có vẻ hợp lý.
+  11. EVIDENCE.caveats KHÔNG PHẢI trường tham chiếu được bằng thẻ {{...}}. Phải
+      chép lại nguyên văn trong câu văn, không viết {{F1.caveats}} hay tương tự.
 
 instructions: |
   Viết bằng tiếng Việt, tối đa {{ max_words | default(500) }} từ.
