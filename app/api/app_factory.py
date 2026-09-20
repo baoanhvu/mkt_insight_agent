@@ -17,6 +17,7 @@ from app.api.routes_admin import router as admin_router
 from app.api.routes_chat import router as chat_router
 from app.api.routes_dashboard import router as dashboard_router
 from app.api.routes_health import router as health_router
+from app.api.routes_invocations import router as invocations_router
 from app.api.routes_segments import router as segments_router
 from app.settings import get_settings
 
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(actions_router)
     app.include_router(chat_router)
     app.include_router(admin_router)
+    app.include_router(invocations_router)
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def index(request: Request) -> HTMLResponse:
