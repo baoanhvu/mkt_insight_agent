@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
 
 from app.agent.narrator import LLMNarrator
@@ -206,6 +206,7 @@ class Orchestrator:
 
     async def answer_stream(
         self, question: str, *, session_id: str | None = None, history: list[Turn] | None = None,
+        on_finish: Callable[[AgentState], Awaitable[AgentEvent | None]] | None = None,
     ) -> AsyncIterator[AgentEvent]:
         """Ban day du: phat su kien theo tung giai doan (docs/15-streaming.md
         muc 15.3), dung CHUNG logic nghiep vu voi `answer()` (route/plan/
@@ -214,7 +215,14 @@ class Orchestrator:
         ngay khi no hoan chinh, nhung `state.narrative_final` cuoi cung van
         duoc tinh qua CHINH `render_narrative` + `run_deterministic_checks`
         ma `answer()` dung, tren toan bo van ban gop lai - dam bao hai duong
-        cho ra CUNG MOT markdown (test_invocations_matches_stream)."""
+        cho ra CUNG MOT markdown (test_invocations_matches_stream).
+
+        `on_finish` la moc noi CHO T11 (telemetry/judge, xem app/telemetry/trace.py)
+        - tham so tuy chon, KHONG nam trong `app.contracts.Orchestrator` Protocol,
+        de Orchestrator van khong tu phu thuoc vao TraceStore/LLM judge (giu
+        dung ranh gioi module). Goi SAU khi da phat `done` (dung nhu docs/15
+        muc 15.3: su kien `judge` den SAU `done` tren CUNG mot ket noi) va
+        CHI khi co state cuoi cung (khong goi cho nhanh loi ngoai du lieu)."""
         state = AgentState(
             trace_id=uuid.uuid4(), question=question, session_id=session_id,
             history=history or [], started_at=datetime.now(UTC),
@@ -246,6 +254,7 @@ class Orchestrator:
                 async for ev in self._refuse_stream(
                     state, usage, t0, abstain_code="OUT_OF_SCOPE",
                     detail="câu hỏi không liên quan tới dữ liệu chiến dịch/khách hàng",
+                    on_finish=on_finish,
                 ):
                     yield ev
                 return
@@ -255,6 +264,7 @@ class Orchestrator:
                 async for ev in self._refuse_stream(
                     state, usage, t0, abstain_code="NO_PLAYBOOK",
                     detail=f"chưa có phân tích cho loại câu hỏi '{state.intent.value}'",
+                    on_finish=on_finish,
                 ):
                     yield ev
                 return
@@ -264,6 +274,7 @@ class Orchestrator:
                 async for ev in self._refuse_stream(
                     state, usage, t0, abstain_code="FREEFORM_UNAVAILABLE",
                     detail="đường hỏi tự do (SQL có rào) sẽ có ở giai đoạn sau",
+                    on_finish=on_finish,
                 ):
                     yield ev
                 return
@@ -274,6 +285,7 @@ class Orchestrator:
             except MissingEntityError as exc:
                 async for ev in self._refuse_stream(
                     state, usage, t0, abstain_code="MISSING_ENTITY", detail=str(exc),
+                    on_finish=on_finish,
                 ):
                     yield ev
                 return
@@ -338,6 +350,10 @@ class Orchestrator:
                 "trace_id": str(state.trace_id), "decision": state.decision.value,
                 "latency_ms": int((time.monotonic() - t0) * 1000), "llm_calls": state.llm_calls,
             })
+            if on_finish is not None:
+                extra = await on_finish(state)
+                if extra is not None:
+                    yield extra
         except Exception as exc:  # bien loi khong luong truoc thanh su kien SSE
             yield AgentEvent(event="error", data={
                 "code": type(exc).__name__, "message": str(exc), "retryable": False,
@@ -346,6 +362,7 @@ class Orchestrator:
     async def _refuse_stream(
         self, state: AgentState, usage: UsageCounters, t0: float, *,
         abstain_code: str, detail: str,
+        on_finish: Callable[[AgentState], Awaitable[AgentEvent | None]] | None = None,
     ) -> AsyncIterator[AgentEvent]:
         """Ban phat-su-kien cua `_refuse` - dung LAI chinh no de khong co hai
         duong soan van ban tu choi (van la prompt T3, khong hardcode tieng
@@ -359,6 +376,10 @@ class Orchestrator:
             "trace_id": str(state.trace_id), "decision": state.decision.value,
             "latency_ms": int((time.monotonic() - t0) * 1000), "llm_calls": state.llm_calls,
         })
+        if on_finish is not None:
+            extra = await on_finish(state)
+            if extra is not None:
+                yield extra
 
     def _finalize(self, state: AgentState, usage: UsageCounters, playbook: Playbook) -> None:
         state.llm_calls = usage.llm_calls

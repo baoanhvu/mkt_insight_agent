@@ -12,6 +12,7 @@ from app.agent.orchestrator import Orchestrator, build_orchestrator
 from app.data.repository import SqlMetricRunner
 from app.semantic.catalog import YamlCatalog, get_catalog
 from app.semantic.compiler import MetricCompiler
+from app.telemetry.store import PgTraceStore
 
 
 def get_catalog_dep() -> YamlCatalog:
@@ -36,4 +37,12 @@ def get_orchestrator() -> Orchestrator:
     return build_orchestrator()
 
 
-__all__ = ["get_catalog_dep", "get_compiler_dep", "get_metric_runner", "get_orchestrator"]
+@lru_cache(maxsize=1)
+def get_trace_store() -> PgTraceStore:
+    return PgTraceStore()
+
+
+__all__ = [
+    "get_catalog_dep", "get_compiler_dep", "get_metric_runner", "get_orchestrator",
+    "get_trace_store",
+]

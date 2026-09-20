@@ -207,7 +207,12 @@ class PromptLoader:
             elif "evidence" in shot:
                 # narrate_*: EVIDENCE serialize truoc, giong dung invocation
                 # thuc (Narrator T08 se dua EvidenceSet vao dung dang nay).
+                # judge_grounding con co them 'statement' (cau can cham) -
+                # thieu no thi vi du mau chi con EVIDENCE, khong day du nhu
+                # mot loi goi that (T11).
                 user_content = f"EVIDENCE:\n{shot['evidence']}"
+                if "statement" in shot:
+                    user_content += f"\n\nSTATEMENT:\n{shot['statement']}"
             else:
                 # clarify_question, refuse_out_of_scope: cac truong con lai
                 # (question/reason/options/...) CHINH LA bien cua `instructions`
