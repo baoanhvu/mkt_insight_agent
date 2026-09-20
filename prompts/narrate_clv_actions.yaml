@@ -73,7 +73,7 @@ few_shots:
     output: |
       ### Khuyến nghị
       - **Chiến dịch tái vay cho nhóm ngủ đông qua Zalo ZNS** — tập `dormant`
-        ({{F1.r1.customers}} khách). Tác động ước tính {{F2.a1.impact_vnd}} VND lên
+        ({{F1.r1.customers}} khách). Tác động ước tính {{F2.a1.impact_vnd}} lên
         lợi nhuận ròng. Giả định tập này phản ứng giống tập đã được nhắm trước đó,
         nên cần một đợt thử quy mô nhỏ trước khi mở rộng. Công sức: thấp.
 
@@ -81,7 +81,7 @@ few_shots:
       Con số này không phải giả định suông. Nó lấy trực tiếp từ chiến dịch tái vay
       đang chạy: tỷ lệ lead thành hồ sơ {{F3.r1.lead_to_application_rate}}, tỷ lệ
       duyệt {{F3.r1.approval_rate}}, lợi nhuận mỗi khoản giải ngân
-      {{F3.r1.profit_per_disbursed}} VND, ROMI {{F3.r1.romi}}. Phép nhân ba tỷ lệ đó
+      {{F3.r1.profit_per_disbursed}}, ROMI {{F3.r1.romi}}. Phép nhân ba tỷ lệ đó
       với quy mô tập ngủ đông cho ra ước lượng ở trên. Điều chưa kiểm chứng là liệu
       tập ngủ đông có phản ứng giống tập đã được nhắm hay không.
 
@@ -97,7 +97,7 @@ few_shots:
     output: |
       ### Khuyến nghị
       - **Đẩy cài app cho nhóm giá trị cao chưa có app** — tập `app_gap`
-        ({{F1.r5.customers}} khách). Tác động ước tính {{F2.a4.impact_vnd}} VND
+        ({{F1.r5.customers}} khách). Tác động ước tính {{F2.a4.impact_vnd}}
         (khoảng {{F2.a4.impact_lower}} – {{F2.a4.impact_upper}}) lên tỷ lệ vay lại.
         **Cần A/B test trước khi mở rộng**: chênh lệch tỷ lệ vay lại giữa nhóm có app
         ({{F2.a4.p_with_app}}) và nhóm không app ({{F2.a4.p_without_app}}) mới chỉ là

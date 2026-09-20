@@ -89,20 +89,20 @@ few_shots:
       actions: [cut_broker_budget]
     output: |
       ### Kết luận
-      Chiến dịch đang lỗ {{F1.r1.net_profit}} VND với ROMI {{F1.r1.romi}}, trong khi
+      Chiến dịch đang lỗ {{F1.r1.net_profit}} với ROMI {{F1.r1.romi}}, trong khi
       trung vị nhóm cùng sản phẩm là {{D1.value}}. Khoản chi phí lớn nhất là phí đối
-      tác {{F3.r1.partner_fee}} VND, chiếm {{F3.r1.partner_fee_share}} tổng chi phí.
+      tác {{F3.r1.partner_fee}}, chiếm {{F3.r1.partner_fee_share}} tổng chi phí.
 
       ### Phễu
       Tỷ lệ lead thành hồ sơ đạt {{F2.r1.lead_to_application_rate}} — cao so với mặt
       bằng, nên chất lượng lead đầu vào không phải vấn đề. Nút thắt nằm ở bước duyệt:
       chỉ {{F2.r1.approval_rate}} hồ sơ được giải ngân, kéo chi phí thu hút mỗi khoản
-      giải ngân lên {{F2.r1.cost_per_disbursed}} VND. Lưu ý rằng tỷ lệ lead thành hồ
+      giải ngân lên {{F2.r1.cost_per_disbursed}}. Lưu ý rằng tỷ lệ lead thành hồ
       sơ ở đây là tỷ lệ tổng hợp mức chiến dịch, không phải attribution từng lead.
 
       ### Phân rã chi phí
-      Doanh thu {{F1.r1.total_revenue}} VND không đủ bù chi phí {{F1.r1.total_cost}} VND.
-      Riêng phí đối tác đã gấp gần bốn lần chi phí marketing {{F3.r1.marketing_cost}} VND.
+      Doanh thu {{F1.r1.total_revenue}} không đủ bù chi phí {{F1.r1.total_cost}}.
+      Riêng phí đối tác đã gấp gần bốn lần chi phí marketing {{F3.r1.marketing_cost}}.
 
       ### Đề xuất
       - Đàm phán lại phí đối tác, hoặc chuyển sang trả theo khoản giải ngân thay vì
@@ -120,8 +120,8 @@ few_shots:
     output: |
       ### Kết luận
       Không có khác biệt đáng kể về lợi nhuận trung bình giữa các nhóm nghề nghiệp.
-      Nhóm Freelancer đạt {{F1.r1.avg_profit}} VND trên {{F1.r1._n}} khách và nhóm
-      Lái xe công nghệ đạt {{F1.r2.avg_profit}} VND trên {{F1.r2._n}} khách, nhưng
+      Nhóm Freelancer đạt {{F1.r1.avg_profit}} trên {{F1.r1._n}} khách và nhóm
+      Lái xe công nghệ đạt {{F1.r2.avg_profit}} trên {{F1.r2._n}} khách, nhưng
       chênh lệch này nằm trong sai số thống kê (p = {{C1.p_value}}) nên
       không dùng để phân bổ ngân sách được. Kiểm định trên cả bảy nhóm nghề cũng
       cho cùng kết luận.

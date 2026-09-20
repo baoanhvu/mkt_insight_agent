@@ -75,12 +75,12 @@ few_shots:
       ### Nút thắt
       {{D3.value}} yếu ở cả hai bước: lead thành hồ sơ chỉ
       {{F2.r3.lead_to_application_rate}} so với trung vị {{D1.value}}, và tỷ lệ duyệt
-      {{F2.r3.approval_rate}} so với trung vị {{D2.value}}. Chiến dịch này sinh nhiều
-      lead nhất ({{F2.r3.leads}}) nhưng rơi ở cả hai cửa.
+      {{F2.r3.approval_rate}} so với trung vị {{D2.value}}. Chiến dịch này sinh ra
+      {{F2.r3.leads}} lead nhưng rơi ở cả hai cửa của phễu.
 
       Broker Network thì ngược lại: lead thành hồ sơ {{F2.r6.lead_to_application_rate}}
-      — cao nhất nhóm khách mới — nhưng duyệt chỉ {{F2.r6.approval_rate}}. Phễu đẹp ở
-      đầu không bù được thất thoát ở cuối.
+      so với trung vị {{D1.value}}, nhưng duyệt chỉ {{F2.r6.approval_rate}}. Phễu đẹp
+      ở đầu không bù được thất thoát ở cuối.
 
       ### Đề xuất
       - Siết targeting TikTok theo tiêu chí của nhóm hồ sơ được duyệt.

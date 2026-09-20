@@ -78,11 +78,11 @@ few_shots:
       ### Các phân khúc
 
       **Khách hàng trụ cột (champion)** — {{F1.r1.customers}} khách, CLV dự báo
-      {{F1.r1.clv_predicted}} VND (khoảng {{F1.r1.clv_lower}} – {{F1.r1.clv_upper}}).
-      Đây là nhóm đã chứng minh giá trị: lợi nhuận trung bình {{F1.r1.avg_profit}} VND
-      và trung vị {{F1.r1.median_profit}} VND — hai con số sát nhau, nghĩa là giá trị
+      {{F1.r1.clv_predicted}} (khoảng {{F1.r1.clv_lower}} – {{F1.r1.clv_upper}}).
+      Đây là nhóm đã chứng minh giá trị: lợi nhuận trung bình {{F1.r1.avg_profit}}
+      và trung vị {{F1.r1.median_profit}} — hai con số sát nhau, nghĩa là giá trị
       phân bố đều trong nhóm chứ không do vài khách kéo lên. Thu nhập trung bình
-      {{F1.r1.avg_income}} VND và {{F1.r1.app_adoption_rate}} đã cài app.
+      {{F1.r1.avg_income}} và {{F1.r1.app_adoption_rate}} đã cài app.
       Việc cần làm là giữ chân, không phải thu hút thêm.
 
       ### Theo nhóm thu nhập
@@ -119,8 +119,8 @@ few_shots:
     output: |
       ### Toàn cảnh
       Trên {{F0.customers}} khách đã nộp hồ sơ, lợi nhuận trung bình là
-      {{F0.avg_profit}} VND — nhưng con số này một mình gây hiểu nhầm. Trung vị là
-      {{F0.median_profit}} VND, tức là quá nửa số khách đang lỗ: cụ thể
+      {{F0.avg_profit}} — nhưng con số này một mình gây hiểu nhầm. Trung vị là
+      {{F0.median_profit}}, tức là quá nửa số khách đang lỗ: cụ thể
       {{F0.negative_profit_share}} số khách có lợi nhuận âm. Toàn bộ lợi nhuận đến
       từ một nhóm nhỏ — top 10% khách đóng góp {{F0.top_decile_profit_share}} tổng
       lợi nhuận.
@@ -138,7 +138,7 @@ few_shots:
     output: |
       ### Theo nghề nghiệp
       Không có khác biệt có ý nghĩa thống kê giữa bảy nhóm nghề nghiệp. Lợi nhuận
-      trung bình dao động từ {{F6.r7.avg_profit}} VND đến {{F6.r1.avg_profit}} VND,
+      trung bình dao động từ {{F6.r7.avg_profit}} đến {{F6.r1.avg_profit}},
       nhưng kiểm định ANOVA cho p = {{C1.p_value}} — chênh lệch nằm trọn
       trong nhiễu. Nghề nghiệp chỉ nên dùng để mô tả chân dung, không dùng để phân
       bổ ngân sách hay xếp hạng tập khách.

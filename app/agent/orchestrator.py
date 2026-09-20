@@ -26,6 +26,7 @@ from app.agent.stages import get_stages_config
 from app.agent.streaming import StreamingVerifier
 from app.agent.tools.action_tool import list_actions_with_eligibility
 from app.agent.tools.registry import ToolRegistry, build_tool_registry
+from app.agent.tools.stats_tool import StatsTool
 from app.contracts import (
     AgentEvent,
     AgentState,
@@ -94,6 +95,50 @@ def _merge_facts(
         columns=merged_columns, rows=merged_rows, row_count=len(merged_rows),
         caveats=list({c for f in sub_facts for c in f.caveats}),
     )
+
+
+# Chi so ty le -> (metric tu so, metric mau so), CA BA PHAI cung dataset va
+# cung cong thuc voi chinh chi so ty le (da doi chieu thu cong voi
+# config/semantic/metrics.yml) - vi du approval_rate =
+# COUNT(*) FILTER(is_disbursed)/COUNT(*), dung KHOP HOAN TOAN voi
+# disbursed_loans/applications tren CUNG dataset "application". KHONG dua vao
+# lead_to_application_rate/lead_to_disbursed_rate (dataset campaign_daily) -
+# cot applications/disbursed trong do la cot RIENG cua campaign_daily, chua
+# kiem chung trung voi metric applications/disbursed_loans (dataset
+# application) qua sub_channel (xem CLAUDE.md canh bao ve cau noi campaign).
+_PROPORTION_METRIC_COMPONENTS: dict[str, tuple[str, str]] = {
+    "approval_rate": ("disbursed_loans", "applications"),
+    "rejection_rate": ("rejected_loans", "applications"),
+}
+
+
+def _add_ranking_comparisons(fact: Fact, ev: EvidenceSet, stats_tool: StatsTool) -> None:
+    """Neu Fact vua tinh co ca chi so ty le VA cap tu so/mau so cua no
+    (bang _PROPORTION_METRIC_COMPONENTS), tu tinh kiem dinh hai ty le giua
+    hang dan dau va hang ke tiep, gan vao ev.comparisons - day la du lieu
+    DUY NHAT cho phep Narrator dung ngon ngu xep hang ('cao hon', 'nhat')
+    ma khong bi lop L4 (stats_guard) chan (xem app/verify/stats_guard.py)."""
+    col_names = {c.name for c in fact.columns}
+    for ratio_metric, (num_name, den_name) in _PROPORTION_METRIC_COMPONENTS.items():
+        if not {ratio_metric, num_name, den_name} <= col_names:
+            continue
+        ranked = sorted(
+            (r for r in fact.rows if r.get(ratio_metric) is not None),
+            key=lambda r: r[ratio_metric], reverse=True,
+        )
+        if len(ranked) < 2:
+            continue
+        top, runner_up = ranked[0], ranked[1]
+        try:
+            comp = stats_tool.compare_proportions(
+                int(top[num_name]), int(top[den_name]),
+                int(runner_up[num_name]), int(runner_up[den_name]),
+                left_ref=str(top.get("_ref", "")), right_ref=str(runner_up.get("_ref", "")),
+                metric=ratio_metric,
+            )
+        except (ValueError, TypeError, KeyError):
+            continue
+        ev.comparisons.append(comp)
 
 
 def _format_evidence_as_markdown_table(ev: EvidenceSet) -> str:
@@ -456,6 +501,7 @@ class Orchestrator:
                 for c in fact.caveats:
                     if c not in ev.caveats:
                         ev.caveats.append(c)
+                _add_ranking_comparisons(fact, ev, self.tools.stats_tool)
                 continue
 
             if planned.section.source == "actions":

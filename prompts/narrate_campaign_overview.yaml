@@ -62,26 +62,32 @@ few_shots:
       F1.r6.campaign_name = "Vay Tieu Dung - Broker Network"  F1.r6.romi = -1.85
       F1.r6.net_profit = -66794874
       F0.total_net_profit = 509852210     F0.romi_overall = 1.64
+      F2.r1.campaign_name = "Vay Lai - Zalo Remarketing"
       F2.r1.approval_rate = 0.920         F2.r1.lead_to_application_rate = 0.344
+      F2.r2.campaign_name = "Vay Tin Chap - Google Search"
+      F2.r2.approval_rate = 0.590
+      comparisons: [{left: F2.r1, right: F2.r2, metric: approval_rate,
+                     significant: true, p_value: 0.0001}]
       caveats: ["Ty le lead thanh ho so la ty le tong hop muc chien dich.",
                 "Ky du lieu 01/08/2026 - 31/08/2026, khong so sanh theo thang duoc."]
       actions: [cut_broker_budget, reloan_campaign_dormant]
     output: |
       ### Kết luận
-      Tổng thể lãi {{F0.total_net_profit}} VND với ROMI {{F0.romi_overall}}. Chiến
-      dịch tái vay qua Zalo dẫn đầu rõ rệt với ROMI {{F1.r1.romi}}, trong khi hai
-      chiến dịch đối tác đang lỗ: Broker Network {{F1.r6.net_profit}} VND và Momo
-      Widget {{F1.r5.net_profit}} VND.
+      Tổng thể lãi {{F0.total_net_profit}} với ROMI {{F0.romi_overall}}. Chiến
+      dịch tái vay qua Zalo thuộc nhóm sinh lời mạnh, đạt ROMI {{F1.r1.romi}}, trong
+      khi hai chiến dịch đối tác đang lỗ: Broker Network {{F1.r6.net_profit}} và
+      Momo Widget {{F1.r5.net_profit}}.
 
       ### Phễu chuyển đổi
-      Chiến dịch Zalo có tỷ lệ duyệt {{F2.r1.approval_rate}} và tỷ lệ lead thành hồ
-      sơ {{F2.r1.lead_to_application_rate}} — cả hai đều cao hơn hẳn nhóm còn lại.
-      Đây là chiến dịch nhắm vào khách đã vay, nên hồ sơ vào đã qua một lần thẩm
+      Chiến dịch Zalo có tỷ lệ duyệt {{F2.r1.approval_rate}}, cao hơn Google Search
+      ({{F2.r2.approval_rate}}) với chênh lệch có ý nghĩa thống kê (p =
+      {{C1.p_value}}). Tỷ lệ lead thành hồ sơ đạt {{F2.r1.lead_to_application_rate}}
+      — đây là chiến dịch nhắm vào khách đã vay, nên hồ sơ vào đã qua một lần thẩm
       định. Lưu ý tỷ lệ lead thành hồ sơ là tỷ lệ tổng hợp mức chiến dịch, không
       phải attribution từng lead.
 
       ### Đề xuất
-      - Cắt hoặc đàm phán lại phí kênh Broker Network — đây là khoản lỗ lớn nhất.
+      - Cắt hoặc đàm phán lại phí kênh Broker Network — đây là khoản lỗ lớn.
       - Mở rộng chiến dịch tái vay sang tập khách đã giải ngân nhưng chưa vay lại.
 
       Kỳ dữ liệu: 01/08/2026 – 31/08/2026, chưa so sánh được theo tháng.
