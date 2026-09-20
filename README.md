@@ -9,7 +9,41 @@ Agent đọc dữ liệu chiến dịch marketing và hồ sơ vay, tự phân t
 Mọi kết luận đều truy vết được xuống dòng dữ liệu gốc. Đây là ràng buộc thiết kế số một, không phải tính năng phụ.
 
 > **Dự án:** MSB x GreenNode AI Hackathon 2026
-> **Trạng thái:** Thiết kế v1.0 — chưa implement
+> **Trạng thái:** Đã implement đầy đủ 14/14 nhiệm vụ (T01–T14), 341 test đang pass, đã deploy PoC lên GreenNode AgentBase Runtime.
+
+## Chạy local
+
+Yêu cầu: Python 3.13, Docker (cho Postgres cục bộ), một API key LLM tương thích OpenAI (GreenNode MaaS hoặc tương đương).
+
+```bash
+git clone <url-repo-nay>
+cd mkt_insight_agent
+
+python -m venv .venv
+.venv/Scripts/activate          # Windows; Linux/Mac: source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+
+cp .env.example .env            # dien LLM_API_KEY that vao .env (KHONG commit file nay)
+
+docker compose -f docker-compose.dev.yml up -d
+python -m etl.load_excel --source excel && python -m etl.build_marts && python -m etl.dq_checks
+
+python main.py                  # -> http://localhost:8080  (/health, /readyz)
+```
+
+Chạy kiểm tra trước khi coi là xong việc (xem đầy đủ ở [`CLAUDE.md`](CLAUDE.md)):
+
+```bash
+python scripts/validate_artifacts.py
+python scripts/verify_metrics_duckdb.py
+ruff check . && mypy app/semantic app/verify app/analytics && lint-imports
+pytest tests/ -q
+python -m evals.run_eval --split dev --profile test
+```
+
+Deploy lên GreenNode AgentBase: xem [`docs/12-build-deploy.md`](docs/12-build-deploy.md) và `scripts/deploy_greennode.ps1`.
+
+> **Lưu ý bảo mật:** repo này giả định luôn ở chế độ **private** — xem [`docs/10-config-secrets.md`](docs/10-config-secrets.md) §10.5. Không bao giờ commit `config/secrets.yaml`, `.env`, `.greennode.json` (đã có trong `.gitignore`).
 
 ## Bắt đầu từ đâu
 
@@ -31,7 +65,7 @@ Toàn bộ thiết kế nằm trong [`docs/`](docs/00-INDEX.md). Đọc theo th�
 
 ## Hiện vật đã sẵn sàng
 
-Repo không chỉ có tài liệu. Các file dưới đây **đã viết xong và kiểm chứng trên dữ liệu thật** — người triển khai dùng trực tiếp, không viết lại:
+Ngoài code ứng dụng đầy đủ trong `app/`, các file cấu hình/dữ liệu dưới đây **đã viết xong và kiểm chứng trên dữ liệu thật, là nguồn sự thật** — không viết lại, xem [`CLAUDE.md`](CLAUDE.md) mục "KHÔNG viết lại những file này":
 
 ```
 app/contracts.py              14 Protocol + 52 kiểu — đặc tả mức class/function
@@ -68,4 +102,6 @@ Ba kết luận nổi bật đã đo được từ dữ liệu này, và chúng 
 
 ## Trạng thái
 
-Tài liệu thiết kế đã hoàn tất. Thứ tự implement ở [11 §11.8](docs/11-module-spec.md), lộ trình theo giai đoạn ở [14](docs/14-roadmap-risks.md).
+14/14 nhiệm vụ trong [17 — Hướng dẫn triển khai](docs/17-implementation-guide.md) đã hoàn tất: tầng dữ liệu/semantic (T01–T05), dashboard D1/D2/D3 (T06), agent orchestrator + LLM (T07–T08), chuỗi kiểm chứng L2–L5 (T09, T11), streaming SSE (T10), SQL guard + đường freeform (T12), trang admin sửa prompt (T13), đóng gói và deploy GreenNode AgentBase (T14).
+
+Đã deploy bản PoC thật lên GreenNode AgentBase Runtime, dùng chung một vDB RDS PostgreSQL cho cả local và prod (xem [03 — Chọn database](docs/03-database-choice.md) §3.5).
