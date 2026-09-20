@@ -67,6 +67,10 @@ addopts = "-ra"
 filterwarnings = [
     "error::DeprecationWarning",
     "ignore::DeprecationWarning:duckdb",
+    # starlette.testclient (dung boi TestClient trong tests/test_admin.py, T13)
+    # dung mot alias cua anyio ma chinh anyio da danh dau deprecated - day la
+    # su lech phien ban giua hai thu vien ben ngoai, khong phai code cua ta.
+    "ignore::DeprecationWarning:starlette",
 ]
 
 [tool.coverage.run]
