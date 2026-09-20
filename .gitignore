@@ -26,3 +26,4 @@ data/*.duckdb
 # Bao cao eval
 evals/reports/
 tests/e2e/report/
+.agentbase/

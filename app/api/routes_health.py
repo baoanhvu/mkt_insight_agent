@@ -14,7 +14,7 @@ from fastapi import APIRouter, Response
 from sqlalchemy import text
 
 from app.api.schemas import HealthResponse, ReadyResponse, VersionResponse
-from app.data.engines import get_engine_ro
+from app.data.engines import get_engine_ro, get_engine_trace
 from app.errors import CatalogValidationError
 from app.semantic.catalog import get_catalog
 from app.settings import get_settings
@@ -37,13 +37,25 @@ def readyz(response: Response) -> ReadyResponse:
     try:
         with get_engine_ro().connect() as conn:
             conn.execute(text("SELECT 1"))
-            blocking = conn.execute(text("SELECT check_id FROM ops.v_blocking_dq")).all()
-        dq_status = "blocked" if blocking else "ok"
-        if blocking:
-            detail_parts.append(f"DQ BLOCK dang fail: {[r[0] for r in blocking]}")
     except Exception as exc:
         db_status = "error"
         detail_parts.append(f"loi ket noi DB: {exc}")
+
+    if db_status == "ok":
+        try:
+            # `ops.v_blocking_dq` nam trong schema ops - mkt_agent_ro (role
+            # phuc vu cau tra loi) KHONG duoc cap quyen vao schema nay theo
+            # dung thiet ke (docs/03 muc 3.3, etl/sql/00_roles.sql: REVOKE ALL
+            # ON SCHEMA ops FROM mkt_agent_ro). mkt_trace_rw moi la role co
+            # SELECT tren schema ops - dung dung engine cho dung viec.
+            with get_engine_trace().connect() as conn:
+                blocking = conn.execute(text("SELECT check_id FROM ops.v_blocking_dq")).all()
+            dq_status = "blocked" if blocking else "ok"
+            if blocking:
+                detail_parts.append(f"DQ BLOCK dang fail: {[r[0] for r in blocking]}")
+        except Exception as exc:
+            dq_status = "unknown"
+            detail_parts.append(f"loi kiem tra DQ: {exc}")
 
     try:
         get_catalog()

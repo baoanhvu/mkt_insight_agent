@@ -19,3 +19,4 @@ config/secrets.yaml
 data/*.duckdb
 README.md
 CLAUDE.md
+.agentbase/

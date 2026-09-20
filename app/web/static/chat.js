@@ -10,6 +10,15 @@ async function* parseSSE(body) {
     const { done, value } = await reader.read();
     if (done) break;
     buf += decoder.decode(value, { stream: true });
+    // sse-starlette/uvicorn phat dong bang CRLF ("\r\n"), khong phai LF
+    // thuan ("\n") - chuan hoa VE LF truoc khi tach, dung theo spec SSE
+    // (CR, LF, CRLF deu la dau xuong dong hop le). Thieu buoc nay thi
+    // indexOf("\n\n") KHONG BAO GIO khop duoc voi "\r\n\r\n", du lieu van
+    // ve du nhung khong bao gio duoc tach thanh su kien - UI ket "..." mai
+    // du server da tra loi xong tu lau (hoi quy da gap thuc te). Chuan hoa
+    // TREN CA BUFFER (khong phai tung chunk rieng) de khong bo sot truong
+    // hop mot cap "\r\n" bi cat lam doi giua hai lan doc socket.
+    buf = buf.replace(/\r\n/g, "\n");
     let sep;
     // Mot su kien SSE ket thuc bang dong trong (\n\n) - co the co nhieu su
     // kien don don don gom trong mot lan doc socket.

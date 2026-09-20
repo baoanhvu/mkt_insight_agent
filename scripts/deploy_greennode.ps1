@@ -70,6 +70,34 @@ function Assert-Command($Name) {
     }
 }
 
+function Find-AgentbaseSkillScripts {
+    <#
+    Bo skill greennode-agentbase co the vao may bang HAI CACH khac nhau
+    (docs/12-build-deploy.md muc 12.1), moi cach nam o mot noi khac nhau:
+      1. `claude plugin marketplace add` + `claude plugin install` (khuyen
+         nghi) -> cai vao thu muc NGUOI DUNG, co danh so phien ban:
+         ~/.claude/plugins/cache/greennode-agentbase/greennode-agentbase/<version>/skills/agentbase/scripts
+      2. Clone thu cong repo vao `.claude/skills/` CUA PROJECT (cach thay the
+         trong docs) -> nam ngay trong repo: .claude/skills/agentbase/scripts
+
+    Tra ve duong dan thu muc scripts dau tien tim thay, hoac $null.
+    #>
+    $projectPath = Join-Path $RepoRoot ".claude\skills\agentbase\scripts"
+    if (Test-Path (Join-Path $projectPath "aip.sh")) { return $projectPath }
+
+    $cacheRoot = Join-Path $env:USERPROFILE ".claude\plugins\cache\greennode-agentbase\greennode-agentbase"
+    if (Test-Path $cacheRoot) {
+        $latest = Get-ChildItem $cacheRoot -Directory -ErrorAction SilentlyContinue |
+            Sort-Object { [version]($_.Name -replace '[^\d\.].*$', '') } -Descending |
+            Select-Object -First 1
+        if ($latest) {
+            $pluginPath = Join-Path $latest.FullName "skills\agentbase\scripts"
+            if (Test-Path (Join-Path $pluginPath "aip.sh")) { return $pluginPath }
+        }
+    }
+    return $null
+}
+
 Write-Host "==> [1/5] Kiem tra dieu kien can" -ForegroundColor Cyan
 Assert-Command "docker"
 if (-not (Test-Path "$RepoRoot\Dockerfile")) {
@@ -90,13 +118,17 @@ Write-Host "==> [3/5] Dang nhap vCR va push image" -ForegroundColor Cyan
 if (-not $BackendName) {
     throw "Thieu -BackendName. Lay bang: .claude/skills/agentbase/scripts/cr.sh repositories list"
 }
-$SkillScripts = Join-Path $RepoRoot ".claude\skills\agentbase\scripts"
-$DockerLogin = Join-Path $SkillScripts "docker_login.sh"
-if (-not (Test-Path $DockerLogin)) {
-    throw ("Khong tim thay '$DockerLogin'. Import bo skill AgentBase truoc " +
-           "(docs/12-build-deploy.md muc 12.1): " +
-           "claude plugin marketplace add vngcloud/greennode-agentbase-skills")
+$SkillScripts = Find-AgentbaseSkillScripts
+if (-not $SkillScripts) {
+    throw ("Khong tim thay script cua bo skill AgentBase (da kiem tra ca " +
+           ".claude/skills/agentbase/scripts/ trong project lan " +
+           "~/.claude/plugins/cache/greennode-agentbase/.../skills/agentbase/scripts/). " +
+           "Import bo skill truoc (docs/12-build-deploy.md muc 12.1): " +
+           "claude plugin marketplace add vngcloud/greennode-agentbase-skills && " +
+           "claude plugin install greennode-agentbase@greennode-agentbase")
 }
+Write-Host "    Dung script skill tai: $SkillScripts" -ForegroundColor DarkGray
+$DockerLogin = Join-Path $SkillScripts "docker_login.sh"
 bash $DockerLogin
 if ($LASTEXITCODE -ne 0) { throw "docker_login.sh that bai (exit $LASTEXITCODE)" }
 

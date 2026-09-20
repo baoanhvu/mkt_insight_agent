@@ -63,12 +63,18 @@ function dashboardApp() {
       this.messages.push({ role: "user", content: text });
       this.draft = "";
 
-      const reply = { role: "assistant", content: "", pending: true, trust: null };
-      this.messages.push(reply);
+      this.messages.push({ role: "assistant", content: "", pending: true, trust: null });
+      // QUAN TRONG: giu INDEX, khong giu truc tiep tham chieu object vua push.
+      // Alpine (nhu Vue) chi theo doi thay doi khi doc/ghi QUA chinh proxy
+      // reactive cua `this.messages` - mot bien rieng tro toi object THO tai
+      // thoi diem push se khong con duoc theo doi nua, nen `reply.content +=`
+      // sau nay van doi dung du lieu nhung KHONG lam UI ve lai (hoi quy da
+      // gap thuc te: bubble ket "..." du du lieu that su da ve day du).
+      const idx = this.messages.length - 1;
       this.scrollChatToBottom();
 
       // Khong await: cho phep gui nhieu cau hoi lien tiep ma khong bi chan -
-      // moi luot chay doc lap, chi cap nhat CHINH bubble `reply` cua no.
+      // moi luot chay doc lap, chi cap nhat CHINH bubble cua no qua idx.
       streamChat(text, history, {
         onStage: (d) => {
           this.chatStage = d.label;
@@ -76,6 +82,7 @@ function dashboardApp() {
           this.chatBusy = true;
         },
         onBlock: (d) => {
+          const reply = this.messages[idx];
           if (d.verified) {
             reply.content += (reply.content ? "\n\n" : "") + d.md;
           } else {
@@ -86,9 +93,10 @@ function dashboardApp() {
           this.scrollChatToBottom();
         },
         onVerified: (d) => {
-          reply.trust = d;
+          this.messages[idx].trust = d;
         },
         onDone: () => {
+          const reply = this.messages[idx];
           reply.pending = false;
           this.chatBusy = false;
           this.chatStage = null;
@@ -98,6 +106,7 @@ function dashboardApp() {
           this.scrollChatToBottom();
         },
         onError: (d) => {
+          const reply = this.messages[idx];
           reply.pending = false;
           reply.error = true;
           this.chatBusy = false;

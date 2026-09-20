@@ -96,7 +96,7 @@ few_shots:
       ### Kết luận
       Google Search và Facebook nằm cùng một nhóm hiệu quả, với ROMI lần lượt
       {{F1.r2.romi}} và {{F1.r3.romi}}. Chênh lệch giữa hai chiến dịch này chưa đạt
-      ý nghĩa thống kê (p = {{comparisons.0.p_value}}), nên chưa có cơ sở để
+      ý nghĩa thống kê (p = {{C1.p_value}}), nên chưa có cơ sở để
       chuyển ngân sách từ bên này sang bên kia.
 
 output_contract:

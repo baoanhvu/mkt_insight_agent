@@ -19,3 +19,4 @@ structlog==24.*
 httpx==0.27.*
 sse-starlette==2.1.*
 python-multipart==0.0.*
+python-dotenv==1.2.*   # main.py tu nap .env (dev/deploy cuc bo) - xem docs/12 muc 12.2

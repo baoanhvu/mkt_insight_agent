@@ -139,7 +139,7 @@ few_shots:
       ### Theo nghề nghiệp
       Không có khác biệt có ý nghĩa thống kê giữa bảy nhóm nghề nghiệp. Lợi nhuận
       trung bình dao động từ {{F6.r7.avg_profit}} VND đến {{F6.r1.avg_profit}} VND,
-      nhưng kiểm định ANOVA cho p = {{comparisons.0.anova_p}} — chênh lệch nằm trọn
+      nhưng kiểm định ANOVA cho p = {{C1.p_value}} — chênh lệch nằm trọn
       trong nhiễu. Nghề nghiệp chỉ nên dùng để mô tả chân dung, không dùng để phân
       bổ ngân sách hay xếp hạng tập khách.
 

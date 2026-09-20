@@ -5,8 +5,16 @@ muc 12.2). Hai yeu cau CUNG cua runtime (muc 12.3): lang nghe cong 8080, va
 
 from __future__ import annotations
 
-from app.logging_ import configure_logging, get_logger
-from app.settings import get_settings
+from dotenv import load_dotenv
+
+# Nap .env NEU CO (dev/deploy cuc bo, xem .env.example) TRUOC khi doc settings -
+# khong lam gi neu file khong ton tai (vi du trong container: .dockerignore
+# khong COPY .env vao image, AgentBase Runtime tiem bien moi truong truc tiep).
+# Khong ghi de bien da co san trong moi truong (mac dinh cua load_dotenv).
+load_dotenv()
+
+from app.logging_ import configure_logging, get_logger  # noqa: E402 - phai load_dotenv truoc
+from app.settings import get_settings  # noqa: E402
 
 _settings = get_settings()
 configure_logging(_settings)

@@ -122,7 +122,7 @@ few_shots:
       Không có khác biệt đáng kể về lợi nhuận trung bình giữa các nhóm nghề nghiệp.
       Nhóm Freelancer đạt {{F1.r1.avg_profit}} VND trên {{F1.r1._n}} khách và nhóm
       Lái xe công nghệ đạt {{F1.r2.avg_profit}} VND trên {{F1.r2._n}} khách, nhưng
-      chênh lệch này nằm trong sai số thống kê (p = {{comparisons.0.p_value}}) nên
+      chênh lệch này nằm trong sai số thống kê (p = {{C1.p_value}}) nên
       không dùng để phân bổ ngân sách được. Kiểm định trên cả bảy nhóm nghề cũng
       cho cùng kết luận.
 
