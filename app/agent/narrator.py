@@ -77,10 +77,18 @@ class LLMNarrator:
     async def narrate_stream(
         self, playbook_id: str, ev: EvidenceSet, question: str,
     ) -> AsyncIterator[str]:
-        # Ban day du se hoan thien o T10 (StreamingVerifier). Tam thoi goi
-        # non-stream roi phat mot khoi duy nhat, giu dung hop dong Protocol.
-        text = await self.narrate(playbook_id, ev, question)
-        yield text
+        messages, params = self._build_messages(playbook_id, ev, question)
+        # mypy hieu nham `LLMClient.stream` (khai bao `async def ... ->
+        # AsyncIterator[str]` trong Protocol o contracts.py, file protected)
+        # la mot coroutine can await - nhung moi ban trien khai that (mock.py,
+        # client.py) la ham async generator (`yield`), goi truc tiep khong
+        # can await. Day la mot dac diem da biet cua mypy voi Protocol +
+        # async generator, khong phai loi runtime (da kiem chung bang test).
+        async for piece in self.llm_client.stream(  # type: ignore[attr-defined]
+            messages, temperature=params.get("temperature", 0.2),
+            max_tokens=params.get("max_tokens", 1200),
+        ):
+            yield piece
 
 
 __all__ = ["LLMNarrator", "serialize_evidence"]

@@ -12,6 +12,7 @@ duong freeform (T12, chua kich hoat o day).
 
 from __future__ import annotations
 
+import time
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -21,6 +22,8 @@ from app.agent.planner import PlannedSection, Planner
 from app.agent.playbooks import Playbook, PlaybookStore, get_playbook_store
 from app.agent.renderer import render_narrative
 from app.agent.router import Router
+from app.agent.stages import get_stages_config
+from app.agent.streaming import StreamingVerifier
 from app.agent.tools.action_tool import list_actions_with_eligibility
 from app.agent.tools.registry import ToolRegistry, build_tool_registry
 from app.contracts import (
@@ -204,12 +207,157 @@ class Orchestrator:
     async def answer_stream(
         self, question: str, *, session_id: str | None = None, history: list[Turn] | None = None,
     ) -> AsyncIterator[AgentEvent]:
-        """Ban toi thieu, dung hop dong Protocol - StreamingVerifier day du
-        (kiem chung theo khoi, khong lo the {{...}} nhap nhay) la viec cua T10."""
-        state = await self.answer(question, session_id=session_id, history=history)
+        """Ban day du: phat su kien theo tung giai doan (docs/15-streaming.md
+        muc 15.3), dung CHUNG logic nghiep vu voi `answer()` (route/plan/
+        build_evidence/verify) - chi khac o CACH phat ra, khong co duong
+        nghiep vu thu hai. `StreamingVerifier` kiem chung tung khoi markdown
+        ngay khi no hoan chinh, nhung `state.narrative_final` cuoi cung van
+        duoc tinh qua CHINH `render_narrative` + `run_deterministic_checks`
+        ma `answer()` dung, tren toan bo van ban gop lai - dam bao hai duong
+        cho ra CUNG MOT markdown (test_invocations_matches_stream)."""
+        state = AgentState(
+            trace_id=uuid.uuid4(), question=question, session_id=session_id,
+            history=history or [], started_at=datetime.now(UTC),
+        )
+        usage = UsageCounters()
+        stages_cfg = get_stages_config()
+        completed_stages: list[str] = []
+        t0 = time.monotonic()
+
+        def stage_event(stage: str, playbook_id: str | None = None, **fmt: object) -> AgentEvent:
+            label = stages_cfg.label(stage, playbook_id, **fmt)
+            completed_stages.append(stage)
+            return AgentEvent(event="stage", data={
+                "stage": stage, "label": label,
+                "progress": stages_cfg.progress_after(completed_stages),
+                "elapsed_ms": int((time.monotonic() - t0) * 1000),
+            })
+
+        try:
+            yield stage_event("intake")
+
+            route_result = await self.router.route(self.llm_client, question, usage)
+            state.intent = route_result.intent
+            state.entities = route_result.entities
+            state.route_confidence = route_result.confidence
+            yield stage_event("routing")
+
+            if state.intent == Intent.OUT_OF_SCOPE:
+                async for ev in self._refuse_stream(
+                    state, usage, t0, abstain_code="OUT_OF_SCOPE",
+                    detail="câu hỏi không liên quan tới dữ liệu chiến dịch/khách hàng",
+                ):
+                    yield ev
+                return
+
+            playbook = self.playbook_store.for_intent(state.intent.value)
+            if playbook is None:
+                async for ev in self._refuse_stream(
+                    state, usage, t0, abstain_code="NO_PLAYBOOK",
+                    detail=f"chưa có phân tích cho loại câu hỏi '{state.intent.value}'",
+                ):
+                    yield ev
+                return
+            state.playbook = playbook.id
+
+            if playbook.sql_guard is not None:
+                async for ev in self._refuse_stream(
+                    state, usage, t0, abstain_code="FREEFORM_UNAVAILABLE",
+                    detail="đường hỏi tự do (SQL có rào) sẽ có ở giai đoạn sau",
+                ):
+                    yield ev
+                return
+
+            yield stage_event("planning", playbook.id)
+            try:
+                planned_sections = self.planner.plan(playbook, state.entities)
+            except MissingEntityError as exc:
+                async for ev in self._refuse_stream(
+                    state, usage, t0, abstain_code="MISSING_ENTITY", detail=str(exc),
+                ):
+                    yield ev
+                return
+
+            yield stage_event("computing", playbook.id)
+            ev_set = self._build_evidence(planned_sections, playbook, state.trace_id)
+            state.evidence = ev_set
+            yield AgentEvent(event="evidence", data={
+                "facts": [
+                    {"fact_id": f.fact_id, "title": f.title, "row_count": f.row_count}
+                    for f in ev_set.facts
+                ],
+                "data_version": ev_set.data_version,
+            })
+            for f in ev_set.facts:
+                yield AgentEvent(event="table", data={
+                    "fact_id": f.fact_id,
+                    "columns": [{"name": c.name, "label": c.label, "unit": c.unit} for c in f.columns],
+                    "rows": [{k: v for k, v in row.items() if k != "_ref"} for row in f.rows],
+                })
+
+            yield stage_event("analyzing", playbook.id)
+            yield stage_event("narrating", playbook.id)
+
+            if usage.llm_calls >= self.max_llm_calls:
+                table_md = _format_evidence_as_markdown_table(ev_set)
+                state.narrative_final = table_md
+                state.checks = []
+                state.trust = TrustScore(value=0.5, band=Band.HEDGE,
+                                         reasons=["het luot goi LLM - hien bang so tho"])
+                state.decision = Decision.HEDGED
+                yield AgentEvent(event="block", data={
+                    "seq": 1, "md": table_md, "verified": True, "source": "template",
+                })
+            else:
+                verifier = StreamingVerifier(ev_set, self.tools.catalog)
+                async for token in self.narrator.narrate_stream(playbook.id, ev_set, question):
+                    for block_event in verifier.feed(token):
+                        yield block_event
+                for block_event in verifier.finish():
+                    yield block_event
+                usage.add(tokens_in=0, tokens_out=0)
+
+                narrative = verifier.full_raw_text
+                state.narrative_template = narrative
+
+                yield stage_event("verifying", playbook.id)
+                rendered_text, _unresolved = render_narrative(narrative, ev_set)
+                state.narrative_final = rendered_text
+                state.checks = run_deterministic_checks(narrative, ev_set, self.tools.catalog)
+                state.trust = compute_trust(state.checks)
+                state.decision = band_to_decision(state.trust.band)
+
+                yield AgentEvent(event="verified", data={
+                    "trust": state.trust.value, "band": state.trust.band.value,
+                    "checks": {c.name: c.score for c in state.checks},
+                })
+
+            yield stage_event("rendering", playbook.id)
+            self._finalize(state, usage, playbook)
+            yield AgentEvent(event="done", data={
+                "trace_id": str(state.trace_id), "decision": state.decision.value,
+                "latency_ms": int((time.monotonic() - t0) * 1000), "llm_calls": state.llm_calls,
+            })
+        except Exception as exc:  # bien loi khong luong truoc thanh su kien SSE
+            yield AgentEvent(event="error", data={
+                "code": type(exc).__name__, "message": str(exc), "retryable": False,
+            })
+
+    async def _refuse_stream(
+        self, state: AgentState, usage: UsageCounters, t0: float, *,
+        abstain_code: str, detail: str,
+    ) -> AsyncIterator[AgentEvent]:
+        """Ban phat-su-kien cua `_refuse` - dung LAI chinh no de khong co hai
+        duong soan van ban tu choi (van la prompt T3, khong hardcode tieng
+        Viet trong .py - R5)."""
+        await self._refuse(state, usage, abstain_code=abstain_code, detail=detail)
+        if state.narrative_final:
+            yield AgentEvent(event="block", data={
+                "seq": 1, "md": state.narrative_final, "verified": True,
+            })
         yield AgentEvent(event="done", data={
-            "trace_id": str(state.trace_id), "answer_markdown": state.narrative_final,
-            "decision": state.decision.value,
+            "trace_id": str(state.trace_id), "decision": state.decision.value,
+            "latency_ms": int((time.monotonic() - t0) * 1000), "llm_calls": state.llm_calls,
         })
 
     def _finalize(self, state: AgentState, usage: UsageCounters, playbook: Playbook) -> None:

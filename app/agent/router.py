@@ -50,6 +50,7 @@ _PERSONA_RE = re.compile(
     r"clv dự báo|clv du bao|khoảng tin cậy|khoang tin cay"
 )
 _OVERVIEW_RE = re.compile(r"chiến dịch nào|chien dich nao|romi tổng|romi tong|so sánh romi|so sanh romi")
+_DASHBOARD_RE = re.compile(r"dashboard|bảng điều khiển|bang dieu khien|tổng quan chiến dịch|tong quan chien dich")
 _DATA_Q_RE = re.compile(
     r"^(có bao nhiêu|co bao nhieu|bao nhiêu|bao nhieu|tổng|tong|trung bình|"
     r"trung binh|có mấy|co may|top \d+%|top \d+ %)"
@@ -107,7 +108,7 @@ def _rule_based_route(question: str) -> RouteResult | None:
     if _PERSONA_RE.search(q):
         return RouteResult(Intent.CUSTOMER_PERSONA, {}, 0.8, False)
 
-    if _OVERVIEW_RE.search(q):
+    if _OVERVIEW_RE.search(q) or _DASHBOARD_RE.search(q):
         return RouteResult(Intent.CAMPAIGN_OVERVIEW, {}, 0.85, False)
 
     if campaign_ids:

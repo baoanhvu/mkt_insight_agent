@@ -16,6 +16,9 @@ function dashboardApp() {
     actions: [],
     draft: "",
     messages: [],
+    chatStage: null,
+    chatProgress: 0,
+    chatBusy: false,
     evidencePanelOpen: false,
     evidenceTraceId: "",
     evidenceFacts: [],
@@ -54,15 +57,58 @@ function dashboardApp() {
     sendChat() {
       const text = this.draft.trim();
       if (!text) return;
+      const history = this.messages
+        .filter((m) => !m.pending && !m.error)
+        .map((m) => ({ role: m.role, content: m.content }));
       this.messages.push({ role: "user", content: text });
       this.draft = "";
-      // Chat day du (goi /api/chat qua SSE) den o giai doan tich hop LLM
-      // (T10). Hien tai chi echo lai de khung hoi thoai co noi dung thuc su
-      // khi kiem tra rang buoc 60vh.
-      this.messages.push({
-        role: "assistant",
-        content: "Hỏi đáp tự do sẽ khả dụng khi tích hợp LLM ở giai đoạn sau.",
+
+      const reply = { role: "assistant", content: "", pending: true, trust: null };
+      this.messages.push(reply);
+      this.scrollChatToBottom();
+
+      // Khong await: cho phep gui nhieu cau hoi lien tiep ma khong bi chan -
+      // moi luot chay doc lap, chi cap nhat CHINH bubble `reply` cua no.
+      streamChat(text, history, {
+        onStage: (d) => {
+          this.chatStage = d.label;
+          this.chatProgress = d.progress;
+          this.chatBusy = true;
+        },
+        onBlock: (d) => {
+          if (d.verified) {
+            reply.content += (reply.content ? "\n\n" : "") + d.md;
+          } else {
+            reply.content +=
+              (reply.content ? "\n\n" : "") +
+              "[Đoạn này bị giữ lại vì không đối chiếu được với dữ liệu nguồn]";
+          }
+          this.scrollChatToBottom();
+        },
+        onVerified: (d) => {
+          reply.trust = d;
+        },
+        onDone: () => {
+          reply.pending = false;
+          this.chatBusy = false;
+          this.chatStage = null;
+          if (!reply.content) {
+            reply.content = "Không tạo được câu trả lời cho câu hỏi này.";
+          }
+          this.scrollChatToBottom();
+        },
+        onError: (d) => {
+          reply.pending = false;
+          reply.error = true;
+          this.chatBusy = false;
+          this.chatStage = null;
+          reply.content = reply.content || `Có lỗi khi xử lý câu hỏi: ${d.message || d.code}`;
+          this.scrollChatToBottom();
+        },
       });
+    },
+
+    scrollChatToBottom() {
       this.$nextTick(() => {
         const el = document.getElementById("chat-scroll");
         if (el) el.scrollTop = el.scrollHeight;

@@ -38,6 +38,17 @@ class VersionResponse(BaseModel):
     metrics_version: str
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    session_id: str | None = None
+    history: list[ChatTurn] = []
+
+
 class ActionRow(BaseModel):
     id: str
     label_vi: str
@@ -55,4 +66,5 @@ class ActionRow(BaseModel):
 
 __all__ = [
     "HealthResponse", "ReadyResponse", "ErrorResponse", "VersionResponse", "ActionRow",
+    "ChatTurn", "ChatRequest",
 ]
